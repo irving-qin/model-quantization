@@ -45,6 +45,10 @@ imagenet | non-uniform | Torch-R18 | 2/2 | - | 65.5 | wd2e-5,sc3.0,wt_qg=1_var-m
 dali | non-uniform | Torch-R18 | 2/2 | - | 65.8 | wd2e-5,sc3.0,wt_qg=1,ns,ds,sgd_2,fp16,ep40
 imagenet | LSQ | Torch-R18 | t/t | - | 65.1 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
 imagenet | non-uniform | Torch-R18 | t/t | - | 65.0 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,clrd,sgd_0,fp32,ep90
+cifar100 |  - | ResNet-18 | 32/32 | - | 68.20 | cbsa,baseline
+cifar100 |  - | ResNet-18 | 32/32 | - | 64.85 | cbsa,prone,npd,keepdim,postbn
+cifar100 |  - | ResNet-50 | 32/32 | - | 70.26 | cbsa,baseline
+cifar100 |  - | ResNet-50 | 32/32 | - | 70.18 | cbsa,prone,npd,keepdim,postbn
 
 `Torch-Rxx` indicates the ResNet architecture from Pytorch (so-called vanilla structure). `ResNet-xx` represnets the variants of ResNet. Minior differences are observed from different implementation from other projects. We provide flexible structure control to build compatibility of those projects. See [resnet.md](./resnet.md) for the architecture description and [classification.md](./classification.md) for how to control the choice by different configuration.
 
