@@ -8,10 +8,10 @@ options="$options --width_alpha 0.25"
 train_batch=128
 val_batch=50
 
-case='cifar100-ldq-lsq-finetune-2bit-pytorch-order_ca-wd1e-4-wt_qg1_var-mean-real_skip-sgd_0'
+case='cifar100-ldq-lsq-finetune-2bit-pytorch-order_c-wd1e-4-wt_qg1_var-mean-real_skip-sgd_0'
 keyword='cifar100,origin,cbsa,fix_pooling,singleconv,fix,ReShapeResolution,real_skip,dorefa,lsq'
 
-pretrained='cifar100-ldn-stratch-fp-pytorch-order_ca-wd1e-4-sgd_0-model_best.pth.tar'
+pretrained='cifar100-ldn-stratch-fp-pytorch-order_c-wd1e-4-sgd_0-model_best.pth.tar'
 options="$options --pretrained $pretrained"
 
  options="$options --tensorboard"
@@ -22,7 +22,7 @@ options="$options --pretrained $pretrained"
 #options="$options --fp16 --opt_level O1"
  options="$options --wd 1e-4"
  options="$options --decay_small"
- options="$options --order ca"
+ options="$options --order c"
 
  options="$options --fm_bit 2 --fm_enable"
  options="$options --wt_bit 2 --wt_enable"
