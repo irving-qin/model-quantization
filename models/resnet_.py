@@ -349,9 +349,15 @@ class BottleNeck(nn.Module):
             if 'no_prone_downsample' in args.keyword and stride != 1 and keepdim:
                 qconv3x3 = conv3x3
 
-            #if stride != 1 and (args.input_size // feature_stride) % (2*stride) != 0:
-            #    extra_padding = ((2*stride) - ((args.input_size // feature_stride) % (2*stride))) // 2
-            #    logging.warning("extra pad for Prone is added to be {}".format(extra_padding))
+            if 'preBN' in args.keyword: # to be finished
+                raise NotImplementedError("preBN not supported for the Prone yet")
+            else:
+                if not keepdim: # to be finished
+                    raise NotImplementedError("keepdim = False not supported for the Prone yet")
+
+            if stride != 1 and (args.input_size // feature_stride) % (2*stride) != 0:
+                extra_padding = ((2*stride) - ((args.input_size // feature_stride) % (2*stride))) // 2
+                logging.warning("extra pad for Prone is added to be {}".format(extra_padding))
         # Prone network off
 
         # downsample branch
@@ -379,7 +385,7 @@ class BottleNeck(nn.Module):
                 if isinstance(n, nn.AvgPool2d):
                     downsample[i] = nn.Sequential()
                 if isinstance(n, nn.Conv2d):
-                    downsample[i] = qconv1x1(inplanes, planes * self.expansion, stride=stride, args=args, force_fp=real_skip, feature_stride=feature_stride)
+                    downsample[i] = qconv1x1(inplanes, planes * self.expansion, stride=stride, padding=extra_padding, args=args, force_fp=real_skip, feature_stride=feature_stride)
         if 'DCHR' in args.keyword:
             if args.verbose:
                 logging.info("warning: DCHR is used in the block")

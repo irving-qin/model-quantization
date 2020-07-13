@@ -28,6 +28,7 @@ class Prone(nn.Module):
             x = F.pad(x, _quadruple(pad), mode="constant", value=0)
 
         B, C, H, W = x.shape
+        #print(B, C, H, W, self.stride)
         x = x.reshape(B, C, H // self.stride, self.stride, W // self.stride, self.stride)
         x = x.transpose(4, 3).reshape(B, C, 1, H // self.stride, W // self.stride, self.stride * self.stride)
         x = x.transpose(2, 5).reshape(B, C * self.stride * self.stride, H // self.stride, W // self.stride)
