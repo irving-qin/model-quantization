@@ -220,12 +220,12 @@ class BasicBlock(nn.Module):
             self.skip = nn.Sequential(*downsample)
 
         # second conv
-        self.conv2 = nn.ModuleList([qconv3x3(planes, planes, 1, 1, args=args, feature_stride=feature_stride*stride) for j in range(args.base)])
+        self.conv2 = nn.ModuleList([qconv3x3(planes, planes, stride=1, groups=1, args=args, feature_stride=feature_stride*stride) for j in range(args.base)])
 
         # first conv
         if 'prone' in args.keyword and 'no_prone_downsample' in args.keyword and stride != 1 and keepdim:
             qconv3x3 = conv3x3
-        self.conv1 = nn.ModuleList([qconv3x3(inplanes, planes, stride, 1, padding=extra_padding+1, args=args, feature_stride=feature_stride, keepdim=keepdim) for j in range(args.base)])
+        self.conv1 = nn.ModuleList([qconv3x3(inplanes, planes, stride=stride, groups=1, padding=extra_padding+1, args=args, feature_stride=feature_stride, keepdim=keepdim) for j in range(args.base)])
 
         # scales
         if args.base == 1:
@@ -307,8 +307,6 @@ class BottleNeck(nn.Module):
         if self.addition_skip and args.verbose:
                 logging.info("warning: add addition skip, not the origin resnet")
 
-        qconv3x3 = conv3x3
-        qconv1x1 = conv1x1
         for i in range(3):
             setattr(self, 'relu%d' % (i+1), nn.ModuleList([actv(args) for j in range(args.base)]))
         if 'fix' in self.args.keyword and ('cbas' in self.args.keyword or 'cbsa' in self.args.keyword):
@@ -337,6 +335,24 @@ class BottleNeck(nn.Module):
             self.bn1 = nn.ModuleList([norm(planes, args) for j in range(args.base)])
             self.bn3 = nn.ModuleList([norm(planes * self.expansion, args) for j in range(args.base)])
         self.bn2 = nn.ModuleList([norm(planes, args) for j in range(args.base)])
+
+        keepdim = True
+        qconv3x3 = conv3x3
+        qconv1x1 = conv1x1
+        extra_padding = 0
+        # Prone network on
+        if 'prone' in args.keyword:
+            keepdim = 'restore_shape' in args.keyword
+            bn_before_restore = 'bn_before_restore' in args.keyword
+            qconv3x3 = qprone
+
+            if 'no_prone_downsample' in args.keyword and stride != 1 and keepdim:
+                qconv3x3 = conv3x3
+
+            #if stride != 1 and (args.input_size // feature_stride) % (2*stride) != 0:
+            #    extra_padding = ((2*stride) - ((args.input_size // feature_stride) % (2*stride))) // 2
+            #    logging.warning("extra pad for Prone is added to be {}".format(extra_padding))
+        # Prone network off
 
         # downsample branch
         self.enable_skip = stride != 1 or inplanes != planes * self.expansion
@@ -371,10 +387,9 @@ class BottleNeck(nn.Module):
         else:
             self.skip = nn.Sequential(*downsample)
 
-        self.conv1 = nn.ModuleList([qconv1x1(inplanes, planes, 1, args=args, feature_stride=feature_stride) for j in range(args.base)])
-        self.conv2 = nn.ModuleList([qconv3x3(planes, planes, stride, 1, args=args, feature_stride=feature_stride) for j in range(args.base)])
-        feature_stride = feature_stride * stride
-        self.conv3 = nn.ModuleList([qconv1x1(planes, planes * self.expansion, 1, args=args, feature_stride=feature_stride) for j in range(args.base)])
+        self.conv1 = nn.ModuleList([qconv1x1(inplanes, planes, stride=1, args=args, feature_stride=feature_stride) for j in range(args.base)])
+        self.conv2 = nn.ModuleList([qconv3x3(planes, planes, stride=stride, groups=1, padding=extra_padding+1, args=args, feature_stride=feature_stride) for j in range(args.base)])
+        self.conv3 = nn.ModuleList([qconv1x1(planes, planes * self.expansion, stride=1, args=args, feature_stride=feature_stride*stride) for j in range(args.base)])
 
         if args.base == 1:
             self.scales = [1]

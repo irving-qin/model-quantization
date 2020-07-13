@@ -9,7 +9,7 @@ train_batch=256
 val_batch=50
 
 case='imagenet-dorefa-eval-fp-pytorch-sgd'
-keyword='imagenet,origin,cbsa,fix_pooling,singleconv,fix'
+keyword='debug,custom-update,imagenet,origin,cbsa,fix_pooling,singleconv,fix'
 
 pretrained='resnet50-19c8e357.pth'
 options="$options --pretrained $pretrained"
