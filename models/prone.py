@@ -28,6 +28,7 @@ class Prone(nn.Module):
             x = F.pad(x, _quadruple(pad), mode="constant", value=0)
 
         B, C, H, W = x.shape
+        #print(B, C, H, W, self.stride)
         x = x.reshape(B, C, H // self.stride, self.stride, W // self.stride, self.stride)
         x = x.transpose(4, 3).reshape(B, C, 1, H // self.stride, W // self.stride, self.stride * self.stride)
         x = x.transpose(2, 5).reshape(B, C * self.stride * self.stride, H // self.stride, W // self.stride)
@@ -40,8 +41,8 @@ class Prone(nn.Module):
             x = x.transpose(4, 3).reshape(B, C//4, H * 2, W * 2)
         return x
 
-def qprone(in_channel, out_channel, stride=1, group=1, padding=1, args=None, force_fp=False, feature_stride=1, kernel_size=3, keepdim=True):
+def qprone(in_channel, out_channel, stride=1, groups=1, padding=1, args=None, force_fp=False, feature_stride=1, kernel_size=3, keepdim=True):
     assert kernel_size in [3], "Only kernel size = 3 support"
     assert stride in [1, 2], "Stride must be 1 or 2"
-    assert group in [1], "group must be 1"
-    return Prone(out_channel, in_channel, stride, group, kernel_size, force_fp, args, feature_stride, keepdim)
+    assert groups in [1], "groups must be 1"
+    return Prone(out_channel, in_channel, stride, groups, kernel_size, force_fp, args, feature_stride, keepdim)

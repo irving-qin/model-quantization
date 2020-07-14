@@ -3,10 +3,10 @@ if [ "$FASTDIR" == "" ]; then
   FASTDIR=/workspace
 fi
 
-if [ -d $FASTDIR/git/model-quantization ];then
-  cd $FASTDIR/git/model-quantization
+if [ -d $FASTDIR/git/ldn-quantization ];then
+  cd $FASTDIR/git/ldn-quantization
 else
-  cd /workspace/git/model-quantization
+  cd /workspace/git/ldn-quantization
 fi
 
 
