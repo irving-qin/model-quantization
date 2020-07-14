@@ -46,7 +46,7 @@ cifar100 |  LSQ | ResNet-20 | 2/2 | - | 73.59 | cbsa, ldq, order cb, 2bit shortc
 cifar100 |  LSQ | ResNet-20 | 2/2 | - | 69.98 | cbsa, ldq, order ca, real shortcut
 cifar100 |  LSQ | ResNet-20 | 2/2 | - | 58.94 | cbsa, ldq, order cba, real shortcut
 dali | - | ResNet-18 | 32/32 | 69.8 | 70.5 | cbsa, ldn, order cb, fp16, sgd_2
-imagenet |  - | ResNet-18 | 32/32 | 69.8 | 70.5 | cbsa, ldn, order cb, fp32, sgd_2
+imagenet |  - | ResNet-18 | 32/32 | 69.8 | 71.4 | cbsa, ldn, order cb, fp32, sgd_2
 cifar100 |  - | ResNet-18 | 32/32 | - | 68.20 | cbsa,baseline
 cifar100 |  - | ResNet-18 | 32/32 | - | 64.85 | cbsa,prone,npd,keepdim,postbn
 cifar100 |  - | ResNet-50 | 32/32 | - | 70.26 | cbsa,baseline
