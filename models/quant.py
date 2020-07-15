@@ -481,12 +481,12 @@ def conv3x3(in_planes, out_planes, stride=1, groups=1, padding=1, args=None, for
     return custom_conv(in_planes, out_planes, kernel_size=3, stride=stride, padding=padding, groups=groups,
             args=args, force_fp=force_fp, feature_stride=feature_stride)
 
-def conv1x1(in_planes, out_planes, stride=1, groups=1, padding=0, args=None, force_fp=False, feature_stride=1):
+def conv1x1(in_planes, out_planes, stride=1, groups=1, padding=0, args=None, force_fp=False, feature_stride=1, keepdim=True):
     "1x1 convolution"
     return custom_conv(in_planes, out_planes, kernel_size=1, stride=stride, padding=padding, groups=groups,
             args=args, force_fp=force_fp, feature_stride=feature_stride)
 
-def conv0x0(in_planes, out_planes, stride=1, groups=1, padding=0, args=None, force_fp=False, feature_stride=1):
+def conv0x0(in_planes, out_planes, stride=1, groups=1, padding=0, args=None, force_fp=False, feature_stride=1, keepdim=True):
     "nop"
     return nn.Sequential()
 

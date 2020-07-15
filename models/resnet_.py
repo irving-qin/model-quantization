@@ -107,6 +107,9 @@ class BasicBlock(nn.Module):
             if 'ldn3x3' in args.keyword:
                 kernel_size = 3
                 self.skip_block = True
+                fconv3x3 = conv0x0
+                sconv3x3 = conv0x0
+                qconv1x1 = conv0x0
 
             for i in self.order:
                 if i == 'c':
