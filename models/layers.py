@@ -118,3 +118,22 @@ def actv(args=None):
 
     return nn.ReLU(inplace=True)
 
+# TResNet: High Performance GPU-Dedicated Architecture (https://arxiv.org/pdf/2003.13630v1.pdf)
+class TResNetStem(nn.Module):
+    def __init__(self, out_channel, in_channel=3, stride=4, kernel_size=1, force_fp=True, args=None):
+        super(TResNetStem, self).__init__()
+        self.stride = stride
+        assert kernel_size in [1, 3], "Error reshape conv kernel"
+        if kernel_size == 1:
+            self.conv = conv1x1(in_channel*stride*stride, out_channel, args=args, force_fp=force_fp)
+        elif kernel_size == 3:
+            self.conv = conv3x3(in_channel*stride*stride, out_channel, args=args, force_fp=force_fp)
+
+    def forward(self, x):
+        B, C, H, W = x.shape
+        x = x.reshape(B, C, H // self.stride, self.stride, W // self.stride, self.stride)
+        x = x.transpose(4, 3).reshape(B, C, 1, H // self.stride, W // self.stride, self.stride * self.stride)
+        x = x.transpose(2, 5).reshape(B, C * self.stride * self.stride, H // self.stride, W // self.stride)
+        x = self.conv(x)
+        return x
+
