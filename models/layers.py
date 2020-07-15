@@ -2,6 +2,8 @@
 import torch
 import torch.nn as nn
 
+from .quant import conv3x3, conv1x1, conv0x0
+
 class SliceBN(nn.Module):
     def __init__(self, channel, group):
         super(SliceBN, self).__init__()
