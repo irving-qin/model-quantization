@@ -124,30 +124,24 @@ class BasicBlock(nn.Module):
         extra_padding = 0
         # Prone network on
         if 'prone' in args.keyword:
-            keepdim = 'restore_shape' in args.keyword
-            bn_before_restore = 'bn_before_restore' in args.keyword
             fconv3x3 = qprone
             sconv3x3 = qprone
 
             if 'prone' in args.keyword and 'no_prone_downsample' in args.keyword and stride != 1 and keepdim:
                 fconv3x3 = conv3x3
 
-            if 'preBN' in args.keyword: # to be finished
+            if 'preBN' in args.keyword:
                 raise NotImplementedError("preBN not supported for the Prone yet")
-            else:
-                if not keepdim: # to be finished
-                    self.bn1 = nn.ModuleList([norm(planes*4, args) for j in range(args.base)])
-                    if bn_before_restore:
-                        self.bn2 = nn.ModuleList([norm(planes*16, args) for j in range(args.base)])
-                else:
-                    if bn_before_restore:
-                        self.bn1 = nn.ModuleList([norm(planes*16, args) for j in range(args.base)])
-                        self.bn2 = nn.ModuleList([norm(planes*16, args) for j in range(args.base)])
-                    raise NotImplementedError("not supported for the Prone yet")
 
+            if 'bn_before_restore' in args.keyword:
+                if fconv3x3 == qprone:
+                    self.bn1 = nn.ModuleList([nn.Sequential()])
+                if sconv3x3 == qprone:
+                    self.bn2 = nn.ModuleList([nn.Sequential()])
+                   
             if stride != 1 and (args.input_size // feature_stride) % (2*stride) != 0:
                 extra_padding = ((2*stride) - ((args.input_size // feature_stride) % (2*stride))) // 2
-                logging.warning("extra pad for Prone is added to be {}".format(extra_padding))
+                logging.warning("extra pad of {} for Prone is added".format(extra_padding))
         # Prone network off
 
         # downsample branch

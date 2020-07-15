@@ -20,6 +20,12 @@ class Prone(nn.Module):
         self.keepdim = keepdim
         self.conv = conv1x1(self.in_channel, self.out_channel, args=args, force_fp=force_fp)
 
+        self.bn_before_restore = False
+        if hasattr(args, 'keyword'):
+            self.bn_before_restore = 'bn_before_restore' in args.keyword
+        if self.bn_before_restore:
+            self.bn = norm(self.out_channel, args)
+
     def forward(self, x):
         # padding zero when cannot just be divided
         B, C, H, W = x.shape
@@ -33,6 +39,8 @@ class Prone(nn.Module):
         x = x.transpose(4, 3).reshape(B, C, 1, H // self.stride, W // self.stride, self.stride * self.stride)
         x = x.transpose(2, 5).reshape(B, C * self.stride * self.stride, H // self.stride, W // self.stride)
         x = self.conv(x)
+        if self.bn_before_restore:
+            x = self.bn(x)
         
         if self.keepdim: # restore the channel dimension, however resolution might be altered
             B, C, H, W = x.shape
