@@ -19,6 +19,12 @@ class Prone(nn.Module):
         self.out_channel = out_channel * 4
         self.keepdim = keepdim
         self.conv = conv1x1(self.in_channel, self.out_channel, args=args, force_fp=force_fp)
+        self.bn_before_restore = 'bn_before_restore' in args.keyword
+        if self.bn_before_restore:
+            self.bn = norm(self.out_channel, args, feature_stride=feature_stride*self.stride)
+        #else:
+            #self.bn = norm(self.out_channel, args, feature_stride=feature_stride*self.stride)
+        #    self.bn = norm(out_channel, args, feature_stride=feature_stride*stride)
 
     def forward(self, x):
         # padding zero when cannot just be divided
@@ -33,12 +39,16 @@ class Prone(nn.Module):
         x = x.transpose(4, 3).reshape(B, C, 1, H // self.stride, W // self.stride, self.stride * self.stride)
         x = x.transpose(2, 5).reshape(B, C * self.stride * self.stride, H // self.stride, W // self.stride)
         x = self.conv(x)
+        if self.bn_before_restore:
+            x = self.bn(x)
         
         if self.keepdim: # restore the channel dimension, however resolution might be altered
             B, C, H, W = x.shape
             x = x.reshape(B, C//4, 4, H, W, 1)
             x = x.transpose(2, 5).reshape(B, C//4, H, W, 2, 2)
             x = x.transpose(4, 3).reshape(B, C//4, H * 2, W * 2)
+        #if not self.bn_before_restore:
+        #    x = self.bn(x)
         return x
 
 def qprone(in_channel, out_channel, stride=1, groups=1, padding=1, args=None, force_fp=False, feature_stride=1, kernel_size=3, keepdim=True):

@@ -31,13 +31,14 @@ class TResNetStem(nn.Module):
             self.conv = conv1x1(in_channel*stride*stride, out_channel, args=args, force_fp=force_fp)
         elif kernel_size == 3:
             self.conv = conv3x3(in_channel*stride*stride, out_channel, args=args, force_fp=force_fp)
-
+       
     def forward(self, x):
         B, C, H, W = x.shape
         x = x.reshape(B, C, H // self.stride, self.stride, W // self.stride, self.stride)
         x = x.transpose(4, 3).reshape(B, C, 1, H // self.stride, W // self.stride, self.stride * self.stride)
         x = x.transpose(2, 5).reshape(B, C * self.stride * self.stride, H // self.stride, W // self.stride)
         x = self.conv(x)
+       
         return x
 
 def seq_c_b_a_s(x, conv, relu, bn, skip, skip_enbale):
@@ -175,6 +176,10 @@ class BasicBlock(nn.Module):
                     self.bn1 = nn.ModuleList([norm(planes*4, args) for j in range(args.base)])
                     if bn_before_restore:
                         self.bn2 = nn.ModuleList([norm(planes*16, args) for j in range(args.base)])
+            if 'bn_before_restore' in args.keyword:
+                self.bn1 = nn.ModuleList([nn.Sequential()])
+                self.bn2 = nn.ModuleList([nn.Sequential()])
+                   
 
             if stride != 1 and (args.input_size // feature_stride) % (2*stride) != 0:
                 extra_padding = ((2*stride) - ((args.input_size // feature_stride) % (2*stride))) // 2
