@@ -6,7 +6,7 @@
 
 1. install dependent packages according to [classification.md](./classification.md)
 
-   Also, refer the [orignal dependencies](https://github.com/blueardour/EDSR-PyTorch#dependencies)
+   Also, refer the [original dependencies](https://github.com/blueardour/EDSR-PyTorch#dependencies)
 
 2. download the [custom EDSR-PyTorch](https://github.com/blueardour/EDSR-PyTorch) project.
 
