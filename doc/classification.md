@@ -6,7 +6,7 @@
 ```
 export FASTDIR=/workspace
 cd $FASTDIR/git/
-git clone https://github.com/blueardour/model-quantization
+git clone https://github.com/aim-uofa/model-quantization
 git clone https://github.com/blueardour/pytorch-utils
 cd model-quantization
 ln -s ../pytorch-utils utils
