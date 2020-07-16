@@ -1,40 +1,51 @@
 
-# QTool: A low bit quantization toolbox for computer vision neural networks
+# QTool: A low-bit quantization toolbox for deep neural networks in computer vision
 
-This project provides aboundant choices of quantization strategies (such as the quantization algoirthms, training schedules and empirical tricks) for quantizing the image classification neural networks into low bit counterparts. Associated projects demonstrate that this project can also benefit other computer vision tasks, such as object detection, segmentation and text parsing. Pretrained models are provided to show high standard of the code on achiving appealing quantization performance. 
+This project provides aboundant choices of quantization strategies (such as the quantization algorithms, training schedules and empirical tricks) for quantizing the image classification neural networks into low-bit counterparts. Associated projects demonstrate that this project can also act as a flexible plugin and benefit other computer vision tasks, such as object detection, segmentation and text parsing. Pretrained models are provided to show high standard of the code on achieving appealing quantization performance. 
 
-## Supported Task
+## Instructions for different tasks
 
-- [Classification](./doc/classification.md): [Performance](./doc/result_cls.md)
-- [Detection](./doc/detection.md): [Performance](./doc/result_det.md)
-- [Segmentation](./doc/detection.md): [Performance](./doc/result_seg.md)
-- [Text parsing](./doc/detection.md): [Performance](./doc/result_text.md)
+- [Classification](./doc/classification.md)
+- [Detection / Segmentation / Text parsing ](./doc/detectron2.md)
 
 ## Update History
 
-- Super Resolution (preparing)
-- Text parsing (preparing)
+- Super Resolution (in preparing)
+- Text parsing (in preparing)
 - 2020.07.08 Instance Segmentation
 - 2020.07.08 Object Detection
 - 2020.06.23 Add classification quantization
 
 ## Citation
 
-Please cite the following work if you find the project helpful. 
+Please cite the following work if you find the project helpful.
 
-Also Cite correspoding publication when you choose [dedicated algorithms](./doc/reference.md).
+```
+@misc{chen2020qtool,
+author = {Peng Chen, Bohan Zhuang, Jing Liu and Chunlei Liu},
+title = {{QTool: A low-bit quantization toolbox for deep neural networks in computer vision}},
+year = {2020},
+howpublished = {\url{https://github.com/blueardour/model-quantization}},
+note = {Accessed: [Insert date here]}
+}
+```
 
-## Contributors
+For quantized object detection, please cite
+```
+@misc{liu2020aqd,
+    title={AQD: Towards Accurate Quantized Object Detection},
+    author={Jing Liu and Bohan Zhuang and Peng Chen and Mingkui Tan and Chunhua Shen},
+    year={2020},
+    eprint={2007.06919},
+    archivePrefix={arXiv}
+}
+```
 
-Current Contributors:
+Also cite the corresponding publications when you choose [dedicated algorithms](./doc/reference.md).
 
-- [Blueardour](https://github.com/blueardour)
-- [bohanzhuang](https://github.com/bohanzhuang)
-- [liujingcs](https://github.com/liujingcs)
-- [liuchunlei0430](https://github.com/liuchunlei0430)
+## Contribute
 
-
-To contribute, PR is appreciated and suggestions are welcome to discuss. Private conact is available at blueardour@gmail.com
+To contribute, PR is appreciated and suggestions are welcome to discuss with. Private contact is available at blueardour@gmail.com
 
 ## License
 

@@ -1,13 +1,13 @@
 
 # A independent script for debug / model converting
 
-This page presents selected functions which is commonly used.
+This page presents selected functions provided by `tools.py` which is commonly used in the project.
 
 ## Model import and paramter renaming.
 
-Some times models are trained by the old repo. When importing the pretrained model to new repo, some variable /paramters name might be changed.
+Some times models are trained by the another (or old version) repo. When importing the pretrained model to new repo, the name of certain variables /paramters might be changed.
 
-Following the commands for looking up items and converting (***Remove the brackets when testing, brackets only indicates the enclosed one can be replaced with other string***).
+The following commands can be used to browse items in the pretrained model and renaming specific parameters (***Remove the brackets when testing, brackets only indicates the enclosed one can be replaced with other string***).
 
 1. looking up item in the model file.
 
@@ -20,7 +20,7 @@ python tools.py --keyword verbose --verbose_list all --old [weights/pytorch-resn
 
 2. renaming parameter
 
-Export pytorch official resnet model to Detectron2 format as initilization model. Edit your own `mapping_from.txt` and `mapping_from.txt` file based on the naming space (which can be verbosed by above command)
+Export pytorch official resnet model to Detectron2 format as initialization model. Edit your own `mapping_from.txt` and `mapping_from.txt` file based on the naming space (which can be browsed by above command)
 ```
 python tools.py --keyword update[,raw]  --mf [weights/det-resnet50/mapping_from.txt] --mt [weights/det-resnet50/mapping_to.txt] --old [weights/pytorch-resnet50/resnet50-19c8e357.pth] --new [weights/det-resnet50/official-r50.pth]
 ```
