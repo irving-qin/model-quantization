@@ -471,9 +471,9 @@ class custom_conv(nn.Conv2d):
         output = F.conv2d(inputs, weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
         return output
 
-def conv5x5(in_planes, out_planes, stride=1, groups=1, args=None, force_fp=False, feature_stride=1):
+def conv5x5(in_planes, out_planes, stride=1, groups=1, padding=2, args=None, force_fp=False, feature_stride=1, keepdim=True):
     "5x5 convolution with padding"
-    return custom_conv(in_planes, out_planes, kernel_size=5, stride=stride, padding=2, groups=groups,
+    return custom_conv(in_planes, out_planes, kernel_size=5, stride=stride, padding=padding, groups=groups,
             args=args, force_fp=force_fp, feature_stride=feature_stride)
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1, padding=1, args=None, force_fp=False, feature_stride=1, keepdim=True):
