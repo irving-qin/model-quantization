@@ -7,6 +7,7 @@ This project provides aboundant choices of quantization strategies (such as the 
 
 - [Classification](./doc/classification.md)
 - [Detection / Segmentation / Text parsing ](./doc/detectron2.md)
+- [Super Resolution](./doc/edsr.md)
 
 ## Update History
 
