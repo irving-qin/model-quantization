@@ -19,7 +19,7 @@
  
    ```
 
-3. make sure the symbolic link is correct.
+3. make sure the symbolic link is correct. Create the link if not exists.
    ```
    cd /workspace/git/EDSR-PyTorch/src/
    ls -l third_party
