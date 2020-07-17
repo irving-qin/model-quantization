@@ -1,11 +1,15 @@
 
+if [ -e .env ]; then
+  source .env
+fi
+
 if [ "$FASTDIR" == "" ]; then
   FASTDIR=/workspace
 fi
 
-if [ -d $FASTDIR/git/ldn-quantization ];then
+if [ -d $FASTDIR/git/ldn-quantization ]; then
   cd $FASTDIR/git/ldn-quantization
-else
+elif [ -d /workspace/git/ldn-quantization ]; then
   cd /workspace/git/ldn-quantization
 fi
 
