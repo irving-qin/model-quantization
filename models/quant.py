@@ -399,6 +399,7 @@ class custom_conv(nn.Conv2d):
             self.padding = (0, 0)
             self.quant_activation = quantization(args, 'fm', [1, in_channels, 1, 1], feature_stride=feature_stride)
             self.quant_weight = quantization(args, 'wt', [out_channels, in_channels, kernel_size, kernel_size])
+            self.quant_output = quantization(args, 'ot', [1, out_channels, 1, 1])
             self.padding_after_quant = getattr(args, 'padding_after_quant', False) if args is not None else False
             assert self.padding_mode != 'circular', "padding_mode of circular is not supported yet"
 
@@ -425,6 +426,10 @@ class custom_conv(nn.Conv2d):
             weight = self.weight
 
         output = F.conv2d(inputs, weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
+
+        if not self.force_fp:
+            output = self.quant_output(output)
+
         return output
 
 def conv5x5(in_planes, out_planes, stride=1, groups=1, padding=2, args=None, force_fp=False, feature_stride=1, keepdim=True):

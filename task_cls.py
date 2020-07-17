@@ -83,6 +83,20 @@ def get_parser(parser=None):
     parser.add_argument('--wt_adaptive', default='none', type=str, choices=['none', 'var', 'mean', 'mean-var', 'var-mean'])
     parser.add_argument('--wt_grad_type', default='none', type=str, choices=['none', 'STE'])
 
+    # config for output quantization
+    parser.add_argument('--ot_bit', default=None, type=float)
+    parser.add_argument('--ot_level', default=None, type=int)
+    parser.add_argument('--ot_half_range', action='store_true', default=False)
+    parser.add_argument('--ot_separator', default=0.38, type=float)
+    parser.add_argument('--ot_correlate', default=-1, type=float)
+    parser.add_argument('--ot_ratio', default=1, type=float)
+    parser.add_argument('--ot_scale', default=0.5, type=float)
+    parser.add_argument('--ot_enable', action='store_true', default=False)
+    parser.add_argument('--ot_boundary', default=None, type=float)
+    parser.add_argument('--ot_quant_group', default=None, type=int)
+    parser.add_argument('--ot_adaptive', default='none', type=str, choices=['none', 'var', 'mean', 'mean-var', 'var-mean'])
+    parser.add_argument('--ot_grad_type', default='none', type=str, choices=['none', 'STE'])
+
     # re-init the model to pre-calculate some initial value
     parser.add_argument('--re_init', action='store_true', default=False)
 
