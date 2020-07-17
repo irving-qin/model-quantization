@@ -21,14 +21,18 @@ class quantization(nn.Module):
         self.index = -1
         self.tag = tag
         self.logger = logger
+        self.method = 'none'
         if logger is None:
-            self.logger = logging.getLogger(__name__)
+            if hasattr(args, 'logger'):
+                self.logger = args.logger
+            else:
+                self.logger = logging.getLogger(__name__)
 
+        self.args = args
         if args is None:
             self.enable = False
             return
 
-        self.args = args
         self.shape = shape
         self.feature_stride = feature_stride
         self.enable = getattr(args, tag + '_enable', False)
@@ -86,12 +90,21 @@ class quantization(nn.Module):
         self.logger.info("half_range({}), bit({}), num_levels({}), quant_group({}) boundary({}) scale({}) ratio({}) fan({}) tag({})".format(
             self.half_range, self.bit, self.num_levels, self.quant_group, self.boundary, self.scale, self.ratio, self.fan, self.tag))
 
-        self.method = 'none'
         self.times = nn.Parameter(torch.zeros(1), requires_grad=False)
         self.learning_rate = 1
         self.init_learning_rate = 1
         self.progressive = False
         self.init()
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        if self.args is None:
+            return "quantization-{}-{}".format(self.tag, self.index)
+        else:
+            return "quantization-{}-{}-enable({})-method({})-half_range({})-bit({})-quant_group({})".format(
+                    self.tag, self.index, self.enable, self.method, self.half_range, self.bit, self.quant_group)
 
     def init(self):
         # for LQ-Net
@@ -387,6 +400,7 @@ class custom_conv(nn.Conv2d):
             self.quant_activation = quantization(args, 'fm', [1, in_channels, 1, 1], feature_stride=feature_stride)
             self.quant_weight = quantization(args, 'wt', [out_channels, in_channels, kernel_size, kernel_size])
             self.padding_after_quant = getattr(args, 'padding_after_quant', False) if args is not None else False
+            assert self.padding_mode != 'circular', "padding_mode of circular is not supported yet"
 
     def init_after_load_pretrain(self):
         if not self.force_fp:
