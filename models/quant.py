@@ -104,7 +104,7 @@ class quantization(nn.Module):
         if self.args is None:
             return "quantization-{}-{}".format(self.tag, self.index)
         else:
-            return "quantization-{}-{}-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})".format(
+            return "quantization-{}-({})-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})".format(
                     self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group)
 
     def init(self):
@@ -527,22 +527,22 @@ class custom_conv(nn.Conv2d):
 
         return output
 
-def conv5x5(in_planes, out_planes, stride=1, groups=1, padding=2, args=None, force_fp=False, feature_stride=1, keepdim=True):
+def conv5x5(in_planes, out_planes, stride=1, groups=1, padding=2, bias=False, args=None, force_fp=False, feature_stride=1, keepdim=True):
     "5x5 convolution with padding"
-    return custom_conv(in_planes, out_planes, kernel_size=5, stride=stride, padding=padding, groups=groups,
+    return custom_conv(in_planes, out_planes, kernel_size=5, stride=stride, padding=padding, groups=groups, bias=bias,
             args=args, force_fp=force_fp, feature_stride=feature_stride)
 
-def conv3x3(in_planes, out_planes, stride=1, groups=1, padding=1, args=None, force_fp=False, feature_stride=1, keepdim=True):
+def conv3x3(in_planes, out_planes, stride=1, groups=1, padding=1, bias=False, args=None, force_fp=False, feature_stride=1, keepdim=True):
     "3x3 convolution with padding"
-    return custom_conv(in_planes, out_planes, kernel_size=3, stride=stride, padding=padding, groups=groups,
+    return custom_conv(in_planes, out_planes, kernel_size=3, stride=stride, padding=padding, groups=groups, bias=bias,
             args=args, force_fp=force_fp, feature_stride=feature_stride)
 
-def conv1x1(in_planes, out_planes, stride=1, groups=1, padding=0, args=None, force_fp=False, feature_stride=1, keepdim=True):
+def conv1x1(in_planes, out_planes, stride=1, groups=1, padding=0, bias=False, args=None, force_fp=False, feature_stride=1, keepdim=True):
     "1x1 convolution"
-    return custom_conv(in_planes, out_planes, kernel_size=1, stride=stride, padding=padding, groups=groups,
+    return custom_conv(in_planes, out_planes, kernel_size=1, stride=stride, padding=padding, groups=groups, bias=bias,
             args=args, force_fp=force_fp, feature_stride=feature_stride)
 
-def conv0x0(in_planes, out_planes, stride=1, groups=1, padding=0, args=None, force_fp=False, feature_stride=1, keepdim=True):
+def conv0x0(in_planes, out_planes, stride=1, groups=1, padding=0, bias=False, args=None, force_fp=False, feature_stride=1, keepdim=True):
     "nop"
     return nn.Sequential()
 
@@ -577,23 +577,32 @@ def conv0x0(in_planes, out_planes, stride=1, groups=1, padding=0, args=None, for
 
 class custom_eltwise(nn.Module):
     def __init__(self, channels=1, args=None, operator='sum'):
+        super(custom_eltwise, self).__init__()
         self.args = args
         self.op = operator
         # input x + input y = output z
-        # x, y are controlled by `ot`
-        # z is saturated
+        # x, y z are controlled by `ot`
         self.enable = False
         if hasattr(args, 'keyword') and hasattr(args, 'ot_enable') and args.ot_enable:
             self.enable = True
             self.quant_x = quantization(args, 'ot', [1, channels, 1, 1])
             self.quant_y = quantization(args, 'ot', [1, channels, 1, 1])
+            self.quant_z = quantization(args, 'ot', [1, channels, 1, 1])
 
     def forward(self, x, y):
         if self.enable:
-            pass
+            if self.op == 'sum':
+                z = self.quant_x(x) + self.quant_y(y)
+                raise RuntimeError("not fully implmented yet")
         else:
             if self.op == 'sum':
-                return x + y
+                z = x + y
+        return z
+
+    def update_quantization_parameter(self, **parameters):
+        if self.enable:
+            self.quant_x.update_quantization(**parameters)
+            self.quant_y.update_quantization(**parameters)
 
 def eltwise(channels=1, args=None, operator='sum'):
     return custom_eltwise(channels, args, operator)
