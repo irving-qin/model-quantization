@@ -22,6 +22,7 @@ class quantization(nn.Module):
         self.tag = tag
         self.logger = logger
         self.method = 'none'
+        self.choice = 'none'
         if logger is None:
             if hasattr(args, 'logger'):
                 self.logger = args.logger
@@ -103,8 +104,8 @@ class quantization(nn.Module):
         if self.args is None:
             return "quantization-{}-{}".format(self.tag, self.index)
         else:
-            return "quantization-{}-{}-enable({})-method({})-half_range({})-bit({})-quant_group({})".format(
-                    self.tag, self.index, self.enable, self.method, self.half_range, self.bit, self.quant_group)
+            return "quantization-{}-{}-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})".format(
+                    self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group)
 
     def init(self):
         # for LQ-Net
@@ -118,6 +119,12 @@ class quantization(nn.Module):
                 self.logger.info('update %s_bit %r' % (self.tag, self.bit))
 
             self.method = 'lqnet'
+            if 'lq' in self.args.keyword:
+                self.choice = 'lqnet'
+            elif 'alq' in self.args.keyword:
+                self.choice = 'alqnet'
+            elif 'popcount' in self.args.keyword:
+                self.choice = 'popcount'
 
             if 'lq' in self.args.keyword:
                 self.lq_net_init()
@@ -154,12 +161,10 @@ class quantization(nn.Module):
                 self.boundary = 1.0
                 self.logger.info('update %s_boundary %r' % (self.tag, self.boundary))
             if self.tag == 'fm':
-                if 'pact' in self.args.keyword:
-                    self.quant = dorefa.qfn
-                    self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
-                elif 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
+                if 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
                     self.quant = dorefa.LSQ
+                    self.choice = 'lsq'
                 elif 'non-uniform' in self.args.keyword or 'fm_non-uniform' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]), requires_grad = False)
                     self.custom_ratio = self.ratio
@@ -169,12 +174,20 @@ class quantization(nn.Module):
                     for i in range(self.num_levels-1):
                         setattr(self, "alpha%d" % i, nn.Parameter(torch.ones(1)))
                         getattr(self, "alpha%d" % i).data.fill_(self.scale / self.boundary)
+                    self.choice = 'non-uniform'
+
                     if 'gamma' in self.args.keyword:
                         self.basis = nn.Parameter(torch.ones (1), requires_grad=False)
                         self.auxil = nn.Parameter(torch.zeros(1), requires_grad=False)
+                        self.choice = self.choice + '-with-gamma'
+                elif 'pact' in self.args.keyword:
+                    self.quant = dorefa.qfn
+                    self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
+                    self.choice = 'pact'
                 else: # Dorefa-Net
                     self.quant = dorefa.qfn
                     self.clip_val = self.boundary
+                    self.choice = 'dorefa-net'
             elif self.tag == 'wt':
                 if 'lsq' in self.args.keyword or 'wt_lsq' in self.args.keyword:
                     if self.shape[0] == 1:  ## linear
@@ -183,6 +196,7 @@ class quantization(nn.Module):
                         self.clip_val = nn.Parameter(torch.zeros(self.quant_group, 1, 1, 1))
                     self.clip_val.data.fill_(self.boundary)
                     self.quant = dorefa.LSQ
+                    self.choice = 'lsq'
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
                     self.quant = dorefa.RoundSTE
                     self.custom_ratio = self.ratio
@@ -190,25 +204,41 @@ class quantization(nn.Module):
                     for i in range(self.num_levels-1):
                         setattr(self, "alpha%d" % i, nn.Parameter(torch.ones(self.quant_group, 1, 1, 1)))
                         getattr(self, "alpha%d" % i).data.mul_(self.scale)
-                    if 'debug' in self.args.keyword:
-                        self.logger.info('debug: tag: {}, enter non-uniform'.format(self.tag))
+                    self.choice = 'non-uniform'
                 elif 'wt_bin' in self.args.keyword and self.num_levels == 2:
                     self.quant = dorefa.DorefaParamsBinarizationSTE
+                    self.choice = 'DorefaParamsBinarizationSTE'
                 else:
                     self.quant = dorefa.qfn
                     self.clip_val = self.boundary
+                    self.choice = 'dorefa-net'
+            elif self.tag == 'ot':
+                if 'lsq' in self.args.keyword or 'ot_lsq' in self.args.keyword:
+                    self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
+                    self.quant = dorefa.LSQ
+                    self.choice = 'lsq'
+                else: # Dorefa-Net
+                    self.quant = dorefa.qfn
+                    self.clip_val = self.boundary
+                    self.choice = 'dorefa-net'
+            else:
+                raise RuntimeError("error tag for the method")
+
 
         if 'xnor' in self.args.keyword:
             if self.tag == 'fm':
                 self.quant_fm = xnor.XnorActivation
                 if 'debug' in self.args.keyword:
                     self.logger.info('debug: tag: {} custom: {}, grad_type {}'.format(self.tag, self.custom, self.grad_type))
-            else:
+                self.choice = 'xnor'
+            elif self.tag == 'wt':
                 if 'debug' in self.args.keyword:
                     self.logger.info('debug: tag: {} custom: {}, grad_type {}'.format(self.tag, self.custom, self.grad_type))
                 self.quant_wt = xnor.XnorWeight
+                self.choice = 'xnor'
                 if 'gamma' in self.args.keyword:
                     self.gamma = nn.Parameter(torch.ones(self.quant_group, 1, 1, 1))
+                    self.choice = 'xnor++'
 
         #raise RuntimeError("Quantization method not provided %s" % self.args.keyword)
 
@@ -236,11 +266,16 @@ class quantization(nn.Module):
                         bit = parameters['fm_bit']
                     if 'fm_level' in parameters:
                         num_level = parameters['fm_level']
-                else:
+                elif self.tag == 'wt':
                     if 'wt_bit' in parameters:
                         bit = parameters['wt_bit']
                     if 'wt_level' in parameters:
                         num_level = parameters['wt_level']
+                elif self.tag == 'ot':
+                    if 'ot_bit' in parameters:
+                        bit = parameters['ot_bit']
+                    if 'ot_level' in parameters:
+                        num_level = parameters['ot_level']
 
                 if bit != self.bit:
                     self.bit = bit
@@ -331,8 +366,8 @@ class quantization(nn.Module):
             return self.quantization_value(x, y)
 
         if self.method == 'dorefa':
-            if self.tag == 'fm':
-                if 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
+            if self.tag in ['fm', 'ot']:
+                if 'lsq' in self.args.keyword or '{}_lsq'.format(self.tag) in self.args.keyword:
                     if self.half_range:
                         y = x / self.clip_val
                         y = torch.clamp(y, min=0, max=1)
@@ -345,10 +380,6 @@ class quantization(nn.Module):
                         y = self.quant.apply(y, self.num_levels - 1)
                         y = y * 2.0 - 1.0
                         y = y * self.clip_val
-                elif 'pact' in self.args.keyword:
-                    y = torch.clamp(x, min=0) # might not necessary when ReLU is applied in the network
-                    y = torch.where(y < self.clip_val, y, self.clip_val)
-                    y = self.quant.apply(y, self.num_levels, self.clip_val.detach(), self.adaptive)
                 elif 'non-uniform' in self.args.keyword or 'fm_non-uniform' in self.args.keyword:
                     if self.half_range:
                         y1 = x * self.alpha0
@@ -378,10 +409,14 @@ class quantization(nn.Module):
                             self.auxil.data = dorefa.non_uniform_scale(x.detach(), y.detach())
                             self.update_bias(self.auxil.data)
                         y = y * self.basis
+                elif 'pact' in self.args.keyword:
+                    y = torch.clamp(x, min=0) # might not necessary when ReLU is applied in the network
+                    y = torch.where(y < self.clip_val, y, self.clip_val)
+                    y = self.quant.apply(y, self.num_levels, self.clip_val.detach(), self.adaptive)
                 else: # default dorefa
                     y = torch.clamp(x, min=0, max=self.clip_val)
                     y = self.quant.apply(y, self.num_levels, self.clip_val, self.adaptive)
-            else:
+            elif self.tag == 'wt':
                 if self.adaptive == 'var-mean':
                     std, mean = torch.std_mean(x.data.reshape(self.quant_group, -1, 1, 1, 1), 1)
                     x = (x - mean) / (std + __EPS__)
@@ -392,7 +427,7 @@ class quantization(nn.Module):
                     y = self.quant.apply(y, self.num_levels - 1)
                     y = y * 2.0 - 1.0
                     y = y * self.clip_val
-                elif 'non-uniform' in self.args.keyword:
+                elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
                     y1 = x * self.alpha0
                     y1 = torch.clamp(y1, min=-1, max=0)
                     y1 = self.quant.apply(y1, self.custom_ratio)
@@ -406,6 +441,8 @@ class quantization(nn.Module):
                     y = torch.tanh(x)
                     y = y / (2 * y.abs().max()) + 0.5
                     y = 2 * self.quant.apply(y, self.num_levels, self.clip_val, self.adaptive) - 1
+            else:
+                raise RuntimeError("Should not reach here for Dorefa-Net method")
 
             self.times.data = self.times.data + 1
             return self.quantization_value(x, y)
@@ -422,7 +459,7 @@ class quantization(nn.Module):
         NORM_PPF_0_75 = 0.6745
         if self.tag == 'fm':
             base = NORM_PPF_0_75 * 2. / (2 ** (self.bit - 1))
-        else:
+        elif self.tag == 'wt':
             base = NORM_PPF_0_75 * ((2. / self.fan) ** 0.5) / (2 ** (self.bit - 1))
         for i in range(self.bit):
             init_basis.append([(2 ** i) * base for j in range(self.quant_group)])
@@ -537,4 +574,28 @@ def conv0x0(in_planes, out_planes, stride=1, groups=1, padding=0, args=None, for
 #def qlinear(in_planes, out_planes, dropout=0, args=None):
 #    "1x1 convolution"
 #    return custom_linear(in_planes, out_planes, dropout=dropout, args=args)
+
+class custom_eltwise(nn.Module):
+    def __init__(self, channels=1, args=None, operator='sum'):
+        self.args = args
+        self.op = operator
+        # input x + input y = output z
+        # x, y are controlled by `ot`
+        # z is saturated
+        self.enable = False
+        if hasattr(args, 'keyword') and hasattr(args, 'ot_enable') and args.ot_enable:
+            self.enable = True
+            self.quant_x = quantization(args, 'ot', [1, channels, 1, 1])
+            self.quant_y = quantization(args, 'ot', [1, channels, 1, 1])
+
+    def forward(self, x, y):
+        if self.enable:
+            pass
+        else:
+            if self.op == 'sum':
+                return x + y
+
+def eltwise(channels=1, args=None, operator='sum'):
+    return custom_eltwise(channels, args, operator)
+
 
