@@ -155,26 +155,47 @@ class quantization(nn.Module):
                 self.logger.info('update %s_boundary %r' % (self.tag, self.boundary))
             if self.tag == 'fm':
                 if 'pact' in self.args.keyword:
-                    self.quant_fm = dorefa.qfn
+                    self.quant = dorefa.qfn
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
                 elif 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
-                    self.quant_fm = dorefa.LSQ
+                    self.quant = dorefa.LSQ
+                elif 'non-uniform' in self.args.keyword or 'fm_non-uniform' in self.args.keyword:
+                    self.clip_val = nn.Parameter(torch.Tensor([self.boundary]), requires_grad = False)
+                    self.custom_ratio = self.ratio
+                    self.quant = dorefa.RoundSTE
+                    assert self.num_levels <= 4, 'non-uniform target at 2bit, ter, bin'
+                    assert self.half_range or self.num_levels == 3, 'Full range quantization for activation supports ternary only'
+                    for i in range(self.num_levels-1):
+                        setattr(self, "alpha%d" % i, nn.Parameter(torch.ones(1)))
+                        getattr(self, "alpha%d" % i).data.fill_(self.scale / self.boundary)
+                    if 'gamma' in self.args.keyword:
+                        self.basis = nn.Parameter(torch.ones (1), requires_grad=False)
+                        self.auxil = nn.Parameter(torch.zeros(1), requires_grad=False)
                 else: # Dorefa-Net
-                    self.quant_fm = dorefa.qfn
+                    self.quant = dorefa.qfn
                     self.clip_val = self.boundary
-            else:
+            elif self.tag == 'wt':
                 if 'lsq' in self.args.keyword or 'wt_lsq' in self.args.keyword:
                     if self.shape[0] == 1:  ## linear
-                        raise RuntimeError("Quantization for linear layer not provided")
+                        raise RuntimeError("Quantization-{} for linear layer not provided".format(self.tag))
                     else:
                         self.clip_val = nn.Parameter(torch.zeros(self.quant_group, 1, 1, 1))
                     self.clip_val.data.fill_(self.boundary)
-                    self.quant_wt = dorefa.LSQ
+                    self.quant = dorefa.LSQ
+                elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
+                    self.quant = dorefa.RoundSTE
+                    self.custom_ratio = self.ratio
+                    assert self.num_levels == 3, 'non-uniform quantization for weight targets at ter'
+                    for i in range(self.num_levels-1):
+                        setattr(self, "alpha%d" % i, nn.Parameter(torch.ones(self.quant_group, 1, 1, 1)))
+                        getattr(self, "alpha%d" % i).data.mul_(self.scale)
+                    if 'debug' in self.args.keyword:
+                        self.logger.info('debug: tag: {}, enter non-uniform'.format(self.tag))
                 elif 'wt_bin' in self.args.keyword and self.num_levels == 2:
-                    self.quant_wt = dorefa.DorefaParamsBinarizationSTE
+                    self.quant = dorefa.DorefaParamsBinarizationSTE
                 else:
-                    self.quant_wt = dorefa.qfn
+                    self.quant = dorefa.qfn
                     self.clip_val = self.boundary
 
         if 'xnor' in self.args.keyword:
@@ -315,22 +336,51 @@ class quantization(nn.Module):
                     if self.half_range:
                         y = x / self.clip_val
                         y = torch.clamp(y, min=0, max=1)
-                        y = self.quant_fm.apply(y, self.num_levels - 1)
+                        y = self.quant.apply(y, self.num_levels - 1)
                         y = y * self.clip_val
                     else:
                         y = x / self.clip_val
                         y = torch.clamp(y, min=-1, max=1)
                         y = (y + 1.0) / 2.0
-                        y = self.quant_fm.apply(y, self.num_levels - 1)
+                        y = self.quant.apply(y, self.num_levels - 1)
                         y = y * 2.0 - 1.0
                         y = y * self.clip_val
                 elif 'pact' in self.args.keyword:
                     y = torch.clamp(x, min=0) # might not necessary when ReLU is applied in the network
                     y = torch.where(y < self.clip_val, y, self.clip_val)
-                    y = self.quant_fm.apply(y, self.num_levels, self.clip_val.detach(), self.adaptive)
+                    y = self.quant.apply(y, self.num_levels, self.clip_val.detach(), self.adaptive)
+                elif 'non-uniform' in self.args.keyword or 'fm_non-uniform' in self.args.keyword:
+                    if self.half_range:
+                        y1 = x * self.alpha0
+                        y1 = torch.clamp(y1, min=0, max=1)
+                        y1 = self.quant.apply(y1, self.custom_ratio)
+                        y = y1
+                        if self.num_levels >= 3:
+                            y2 = (x - 1.0/self.alpha0) * self.alpha1
+                            y2 = torch.clamp(y2, min=0, max=1)
+                            y2 = self.quant.apply(y2, self.custom_ratio)
+                            y = y + y2
+                        if self.num_levels == 4:
+                            y3 = (x - (1.0/self.alpha0 + 1.0/self.alpha1)) * self.alpha2
+                            y3 = torch.clamp(y3, min=0, max=1)
+                            y3 = self.quant.apply(y3, self.custom_ratio)
+                            y =  y + y3
+                    else:
+                        y1 = x * self.alpha0
+                        y1 = torch.clamp(y1, min=-1, max=0)
+                        y1 = self.quant.apply(y1, self.custom_ratio)
+                        y2 = x * self.alpha1
+                        y2 = torch.clamp(y2, min=0, max=1)
+                        y2 = self.quant.apply(y2, self.custom_ratio)
+                        y = y1 + y2
+                    if 'gamma' in self.args.keyword:
+                        if self.training:
+                            self.auxil.data = dorefa.non_uniform_scale(x.detach(), y.detach())
+                            self.update_bias(self.auxil.data)
+                        y = y * self.basis
                 else: # default dorefa
                     y = torch.clamp(x, min=0, max=self.clip_val)
-                    y = self.quant_fm.apply(y, self.num_levels, self.clip_val, self.adaptive)
+                    y = self.quant.apply(y, self.num_levels, self.clip_val, self.adaptive)
             else:
                 if self.adaptive == 'var-mean':
                     std, mean = torch.std_mean(x.data.reshape(self.quant_group, -1, 1, 1, 1), 1)
@@ -339,15 +389,23 @@ class quantization(nn.Module):
                     y = x / self.clip_val
                     y = torch.clamp(y, min=-1, max=1)
                     y = (y + 1.0) / 2.0
-                    y = self.quant_wt.apply(y, self.num_levels - 1)
+                    y = self.quant.apply(y, self.num_levels - 1)
                     y = y * 2.0 - 1.0
                     y = y * self.clip_val
+                elif 'non-uniform' in self.args.keyword:
+                    y1 = x * self.alpha0
+                    y1 = torch.clamp(y1, min=-1, max=0)
+                    y1 = self.quant.apply(y1, self.custom_ratio)
+                    y2 = x * self.alpha1
+                    y2 = torch.clamp(y2, min=0, max=1)
+                    y2 = self.quant.apply(y2, self.custom_ratio)
+                    y = y1 + y2
                 elif 'wt_bin' in self.args.keyword and self.num_levels == 2:
-                    y = self.quant_wt.apply(x, self.adaptive)
+                    y = self.quant.apply(x, self.adaptive)
                 else:
                     y = torch.tanh(x)
                     y = y / (2 * y.abs().max()) + 0.5
-                    y = 2 * self.quant_wt.apply(y, self.num_levels, self.clip_val, self.adaptive) - 1
+                    y = 2 * self.quant.apply(y, self.num_levels, self.clip_val, self.adaptive) - 1
 
             self.times.data = self.times.data + 1
             return self.quantization_value(x, y)
