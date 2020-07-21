@@ -23,7 +23,7 @@ cd $FASTDIR/git/model-quantization
 # python 3 is required
 pip install -r requirement.txt
 ```
-Quantization for the classification task requires the pytorch version `1.3` or higher versions. However, other tasks such as detection and segmentation require a higher version pytorch. `detectron2` currently require `Torch 1.4`+. Besides, the CUDA version on the machine is advised to keep the same with the one compiling the pytorch.
+Quantization for the classification task has not strict requirement on the pytorch version. However, other tasks such as detection and segmentation require a higher version pytorch. `detectron2` currently require `Torch 1.4`+. Besides, the CUDA version on the machine is advised to keep the same with the one compiling the pytorch.
 
 3. Install Nvidia image pre-processing packages and mix precision training packages (optional, highly recommend)
 
