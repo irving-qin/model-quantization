@@ -3,42 +3,9 @@ import torch.nn as nn
 import logging
 import numpy as np
 
-from .quant import conv3x3, conv1x1
-from .layers import norm, actv
+from .quant import conv3x3, conv1x1, conv0x0
+from .layers import norm, actv, TResNetStem
 from .prone import qprone
-
-# double_channel_half_resolution
-class DCHR(nn.Module):
-    def __init__(self, stride):
-        super(DCHR, self).__init__()
-        self.pool = nn.AvgPool2d(kernel_size=stride)
-
-    def forward(self, x):
-        pool = self.pool(x)
-        shape = pool.shape
-        shape = [i for i in shape]
-        shape[1] = shape[1] // 2
-        fill = x.new_zeros(shape)
-        return torch.cat((fill, pool, fill), 1)
-
-# TResNet: High Performance GPU-Dedicated Architecture (https://arxiv.org/pdf/2003.13630v1.pdf)
-class TResNetStem(nn.Module):
-    def __init__(self, out_channel, in_channel=3, stride=4, kernel_size=1, force_fp=True, args=None):
-        super(TResNetStem, self).__init__()
-        self.stride = stride
-        assert kernel_size in [1, 3], "Error reshape conv kernel"
-        if kernel_size == 1:
-            self.conv = conv1x1(in_channel*stride*stride, out_channel, args=args, force_fp=force_fp)
-        elif kernel_size == 3:
-            self.conv = conv3x3(in_channel*stride*stride, out_channel, args=args, force_fp=force_fp)
-
-    def forward(self, x):
-        B, C, H, W = x.shape
-        x = x.reshape(B, C, H // self.stride, self.stride, W // self.stride, self.stride)
-        x = x.transpose(4, 3).reshape(B, C, 1, H // self.stride, W // self.stride, self.stride * self.stride)
-        x = x.transpose(2, 5).reshape(B, C * self.stride * self.stride, H // self.stride, W // self.stride)
-        x = self.conv(x)
-        return x
 
 def seq_c_b_a_s(x, conv, relu, bn, skip, skip_enbale):
     out = conv(x)
@@ -99,9 +66,6 @@ class BasicBlock(nn.Module):
         if self.addition_skip and args.verbose:
             logging.info("warning: add addition skip, not the origin resnet")
 
-        # quantize skip connection ?
-        real_skip = 'real_skip' in args.keyword
-
         for i in range(2):
             setattr(self, 'relu%d' % (i+1), nn.ModuleList([actv(args) for j in range(args.base)]))
         if 'fix' in self.args.keyword and ('cbas' in self.args.keyword or 'cbsa' in self.args.keyword):
@@ -110,32 +74,46 @@ class BasicBlock(nn.Module):
 
         if 'cbas' in args.keyword:
             self.seq = seq_c_b_a_s
-            order = 'cbas'
         elif 'cbsa' in args.keyword: # default architecture in Pytorch
             self.seq = seq_c_b_s_a
-            order = 'cbsa'
         elif 'cabs' in args.keyword: # group-net
             self.seq = seq_c_a_b_s
-            order = 'cabs'
         elif 'bacs' in args.keyword:
             self.seq = seq_b_a_c_s
-            order = 'bacs'
         elif 'bcas' in args.keyword:
             self.seq = seq_b_c_a_s
-            order = 'bcas'
         else:
             self.seq = None
-            order = 'none'
 
+        if 'bacs' in args.keyword or 'bcas' in args.keyword: 
+            self.bn1 = nn.ModuleList([norm(inplanes, args) for j in range(args.base)])
+            if 'fix' in self.args.keyword:
+                self.fix_bn = norm(planes, args)
+        else:
+            self.bn1 = nn.ModuleList([norm(planes, args) for j in range(args.base)])
+        self.bn2 = nn.ModuleList([norm(planes, args) for j in range(args.base)])
+
+        keepdim = True
+        fconv3x3 = conv3x3
+        sconv3x3 = conv3x3
+        qconv1x1 = conv1x1
+        extra_padding = 0
+        self.skip_block = False
         # lossless downsample network on
         self.order = getattr(args, "order", 'none')
         if 'ReShapeResolution' in args.keyword and stride != 1:
             shrink = []
-            if self.order == 'none':
-                self.order = order
+            kernel_size = 1
+            if 'ldn3x3' in args.keyword:
+                kernel_size = 3
+                self.skip_block = True
+                fconv3x3 = conv0x0
+                sconv3x3 = conv0x0
+                qconv1x1 = conv0x0
+
             for i in self.order:
                 if i == 'c':
-                    shrink.append(TResNetStem(planes, in_channel=inplanes, stride=stride, args=args, force_fp=real_skip))
+                    shrink.append(TResNetStem(planes, in_channel=inplanes, stride=stride, kernel_size=kernel_size, args=args))
                 if i == 'b':
                     if 'preBN' in args.keyword:
                         shrink.append(norm(inplanes, args))
@@ -143,46 +121,59 @@ class BasicBlock(nn.Module):
                         shrink.append(norm(planes, args))
                 if i == 'a':
                     shrink.append(actv(args))
-            self.shrink = nn.Sequential(*shrink)
-            inplanes = planes
-            stride = 1
+
+            if 'f3x3' not in args.keyword:
+                self.shrink = nn.Sequential(*shrink)
+                inplanes = planes
+                stride = 1
+
+            if 'f0x0' in args.keyword:
+                fconv3x3 = conv0x0
+                self.bn1 = nn.ModuleList([nn.Sequential() for j in range(args.base)])
+                self.relu1 = nn.ModuleList([nn.Sequential() for j in range(args.base)])
+                if self.addition_skip:
+                    logging.info("warning: update addition skip to be False")
+                self.addition_skip = False
+
+            if 'f1x1' in args.keyword:
+                fconv3x3 = conv1x1
+
+            if 's1x1' in args.keyword:
+                sconv3x3 = conv1x1
         else:
             self.shrink = None
         # lossless downsample network off
 
-        if 'bacs' in args.keyword or 'bcas' in args.keyword: 
-            self.bn1 = nn.ModuleList([norm(inplanes, args, feature_stride=feature_stride) for j in range(args.base)])
-            if 'fix' in self.args.keyword:
-                self.fix_bn = norm(planes, args, feature_stride=feature_stride*stride)
-        else:
-            self.bn1 = nn.ModuleList([norm(planes, args, feature_stride=feature_stride*stride) for j in range(args.base)])
-        self.bn2 = nn.ModuleList([norm(planes, args, feature_stride=feature_stride*stride) for j in range(args.base)])
-
-        keepdim = True
-        qconv3x3 = conv3x3
-        qconv1x1 = conv1x1
-        extra_padding = 0
         # Prone network on
         if 'prone' in args.keyword:
-            keepdim = 'restore_shape' in args.keyword
-            bn_before_restore = 'bn_before_restore' in args.keyword
-            qconv3x3 = qprone
+            fconv3x3 = qprone
+            sconv3x3 = qprone
 
-            if 'preBN' in args.keyword: # to be finished
+            if 'no_prone_downsample' in args.keyword and stride != 1 and keepdim:
+                fconv3x3 = conv3x3
+
+            if 's1x1' in args.keyword:
+                sconv3x3 = conv1x1
+            if 's3x3' in args.keyword:
+                sconv3x3 = conv3x3
+
+            if 'preBN' in args.keyword:
                 raise NotImplementedError("preBN not supported for the Prone yet")
-            else:
-                if not keepdim: # to be finished
-                    self.bn1 = nn.ModuleList([norm(planes*4, args) for j in range(args.base)])
-                    if bn_before_restore:
-                        self.bn2 = nn.ModuleList([norm(planes*16, args) for j in range(args.base)])
 
+            if 'bn_before_restore' in args.keyword:
+                if fconv3x3 == qprone:
+                    self.bn1 = nn.ModuleList([nn.Sequential() for j in range(args.base)])
+                if sconv3x3 == qprone:
+                    self.bn2 = nn.ModuleList([nn.Sequential() for j in range(args.base)])
+                   
             if stride != 1 and (args.input_size // feature_stride) % (2*stride) != 0:
                 extra_padding = ((2*stride) - ((args.input_size // feature_stride) % (2*stride))) // 2
-                logging.warning("extra pad for Prone is added to be {}".format(extra_padding))
+                logging.warning("extra pad of {} for Prone is added".format(extra_padding))
         # Prone network off
 
         # downsample branch
         self.enable_skip = stride != 1 or inplanes != planes
+        real_skip = 'real_skip' in args.keyword
         downsample = []
         if stride != 1:
             downsample.append(nn.AvgPool2d(stride))
@@ -212,20 +203,10 @@ class BasicBlock(nn.Module):
                     downsample[i] = nn.Sequential()
                 if isinstance(n, nn.Conv2d):
                     downsample[i] = qconv1x1(inplanes, planes, stride=stride, padding=extra_padding, args=args, force_fp=real_skip, feature_stride=feature_stride)
-        if 'DCHR' in args.keyword: # try if any performance improvement when aligning resolution without downsample 
-            if args.verbose:
-                logging.warning("warning: DCHR is used in the block")
-            self.skip = DCHR(stride)
-        else:
-            self.skip = nn.Sequential(*downsample)
+        self.skip = nn.Sequential(*downsample)
 
-        # second conv
-        self.conv2 = nn.ModuleList([qconv3x3(planes, planes, stride=1, groups=1, args=args, feature_stride=feature_stride*stride) for j in range(args.base)])
-
-        # first conv
-        if 'prone' in args.keyword and 'no_prone_downsample' in args.keyword and stride != 1 and keepdim:
-            qconv3x3 = conv3x3
-        self.conv1 = nn.ModuleList([qconv3x3(inplanes, planes, stride=stride, groups=1, padding=extra_padding+1, args=args, feature_stride=feature_stride, keepdim=keepdim) for j in range(args.base)])
+        self.conv1 = nn.ModuleList([fconv3x3(inplanes, planes, stride=stride, groups=1, padding=extra_padding+1, args=args, feature_stride=feature_stride, keepdim=keepdim) for j in range(args.base)])
+        self.conv2 = nn.ModuleList([sconv3x3(planes, planes, stride=1, groups=1, args=args, feature_stride=feature_stride*stride) for j in range(args.base)])
 
         # scales
         if args.base == 1:
@@ -253,6 +234,9 @@ class BasicBlock(nn.Module):
 
         if self.shrink is not None:
             x = self.shrink(x)
+
+            if self.skip_block:
+                return x
 
         if not self.enable_skip:
             residual = x
@@ -342,18 +326,18 @@ class BottleNeck(nn.Module):
         extra_padding = 0
         # Prone network on
         if 'prone' in args.keyword:
-            keepdim = 'restore_shape' in args.keyword
             bn_before_restore = 'bn_before_restore' in args.keyword
             qconv3x3 = qprone
 
             if 'no_prone_downsample' in args.keyword and stride != 1 and keepdim:
                 qconv3x3 = conv3x3
 
-            if 'preBN' in args.keyword: # to be finished
+            if 'preBN' in args.keyword:
                 raise NotImplementedError("preBN not supported for the Prone yet")
-            else:
-                if not keepdim: # to be finished
-                    raise NotImplementedError("keepdim = False not supported for the Prone yet")
+
+            if 'bn_before_restore' in args.keyword:
+                if qconv3x3 == qprone:
+                    self.bn2 = nn.ModuleList([nn.Sequential() for j in range(args.base)])
 
             if stride != 1 and (args.input_size // feature_stride) % (2*stride) != 0:
                 extra_padding = ((2*stride) - ((args.input_size // feature_stride) % (2*stride))) // 2
@@ -386,12 +370,7 @@ class BottleNeck(nn.Module):
                     downsample[i] = nn.Sequential()
                 if isinstance(n, nn.Conv2d):
                     downsample[i] = qconv1x1(inplanes, planes * self.expansion, stride=stride, padding=extra_padding, args=args, force_fp=real_skip, feature_stride=feature_stride)
-        if 'DCHR' in args.keyword:
-            if args.verbose:
-                logging.info("warning: DCHR is used in the block")
-            self.skip = DCHR(stride)
-        else:
-            self.skip = nn.Sequential(*downsample)
+        self.skip = nn.Sequential(*downsample)
 
         self.conv1 = nn.ModuleList([qconv1x1(inplanes, planes, stride=1, args=args, feature_stride=feature_stride) for j in range(args.base)])
         self.conv2 = nn.ModuleList([qconv3x3(planes, planes, stride=stride, groups=1, padding=extra_padding+1, args=args, feature_stride=feature_stride) for j in range(args.base)])

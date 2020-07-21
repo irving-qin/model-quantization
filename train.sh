@@ -1,11 +1,18 @@
 
+if [ -e .env ]; then
+  source .env
+  if [ "$3" == "load_data" ]; then
+    copy_imagenet_to_ddr
+  fi
+fi
+
 if [ "$FASTDIR" == "" ]; then
   FASTDIR=/workspace
 fi
 
-if [ -d $FASTDIR/git/ldn-quantization ];then
+if [ -d $FASTDIR/git/ldn-quantization ]; then
   cd $FASTDIR/git/ldn-quantization
-else
+elif [ -d /workspace/git/ldn-quantization ]; then
   cd /workspace/git/ldn-quantization
 fi
 
