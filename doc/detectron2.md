@@ -2,15 +2,11 @@
 
 The framework is able to provide quantization support for all kinds of tasks that the `Detectron2` and `AdelaiDet` projects integrate. Mix precision training is also available as a benefit.
 
-***The related repositories are temporarily unavailable***
-
 ## Install
 
 1. install dependent packages according to [classification.md](./classification.md)
 
-   ***Note a known issue for the FP16 training: Training with FP16 and SyncBN on multi-GPU seems to cause NAN loss for current projects. Use normal BN instead***
-
-2. download the [custom detectron2](https://github.com/blueardour/detectron2) project. See [what is modified below](./detectron2.md#what-is-modified-in-the-detectron2-project).
+2. download the [Quantization version of detectron2](https://github.com/blueardour/detectron2) project. See [what is modified below](./detectron2.md#what-is-modified-in-the-detectron2-project).
 
    ```
    cd /workspace/git/
@@ -32,11 +28,11 @@ The framework is able to provide quantization support for all kinds of tasks tha
    # link classification pretrained weight
    ln -s ../model-quantization/weights .
    ```
-   Facebook detectron2 does not support some works such as `FCOS` and `Blendmask`. Try the [aim-uofa/AdelaiDet](https://github.com/aim-uofa/AdelaiDet) for more tasks. Note, for the `aim-uofa/AdelaiDet`, it is also necessary to clone my custom branch (I'm considering to merge the `quantization` branch in my repo to the official repo if it is possible).
+   Facebook detectron2 does not support some works such as `FCOS` and `Blendmask`. Try the [quantization version of aim-uofa/AdelaiDet](https://github.com/blueardour/AdelaiDet) for more tasks.
    
    ```
    cd /workspace/git/
-   git clone https://github.com/blueardour/uofa-AdelaiDet AdelaiDet
+   git clone https://github.com/blueardour/AdelaiDet AdelaiDet
    # notice to change to the quantization branch
    cd AdelaiDet
    git checkout quantization
@@ -48,9 +44,7 @@ The framework is able to provide quantization support for all kinds of tasks tha
    ln -s ../model-quantization/weights .
    ```
    
-   The custom project [custom detectron2](https://github.com/blueardour/detectron2) and [custom AdelaiDet](https://github.com/blueardour/uofa-AdelaiDet) will upgrade regularly from the origin repo.
-   
-   Similar with the original project, `custom AdelaiDet` depends on `custom detectron2`.  Install the two projects based on the original install instructions.
+   [Quantization version of detectron2](https://github.com/blueardour/detectron2) and [quantization version of AdelaiDet](https://github.com/blueardour/AdelaiDet) only add quantization support to the projects and do not change the original code logic. Quantization version projects will upgrade from their official repositories, regularly.
 
 3. make sure the symbolic link is correct.
    ```
@@ -100,11 +94,9 @@ We provide pretrained models gradually in [google drive](https://drive.google.co
 
 ## Training and Testing
 
-  Training and testing methods follow original projects ( [detectron2](https://github.com/facebookresearch/detectron2) or [aim-uofa/AdelaiDet](https://github.com/aim-uofa/AdelaiDet) ). To obtain the quantization version of the given models, please modify corresponding configuration files by setting quantization related options.
-
-  Example configurations for quantization are provided in `detectron2/config` and `AdelaiDet/config`. In `detectron2` and `aim-uofa/AdelaiDet` projects, most of the options are managed by the `yaml` config file. Thus, the `detectron2/config/default.py` is modified to add the quantization related options. They have the same meaning with the ones in the classification task. Refer option introduction in [classification.md](./classification.md#Training-script-options)
-
-  If you want to test the low-bit quantization model only, just download the pretrained model and run the test. If training is required, see below [examples](./detectron2.md#Examples) for demonstration.
+  Training and testing methods follow original projects ( [detectron2](https://github.com/facebookresearch/detectron2) or [aim-uofa/AdelaiDet](https://github.com/aim-uofa/AdelaiDet) ).
+  
+  To obtain the quantization version of the given models, please modify corresponding configuration files by setting quantization related options introduced in the quantization versions of projects. Example of the configurations for quantization are provided in `detectron2/config` and `AdelaiDet/config`, respectively. To learn how the newly introduced options impact the quantization procedure, refer option introduction in [classification.md](./classification.md#Training-script-options) for more detail explanation. We also give an advised flow for the model quanzation, see below [guide](./etectron2.md#Special-guide-for-quantization) and [examples](./detectron2.md#Examples) for demonstration.
 
 ## Special guide for quantization
 
