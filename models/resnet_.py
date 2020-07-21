@@ -98,8 +98,9 @@ class BasicBlock(nn.Module):
         sconv3x3 = conv3x3
         qconv1x1 = conv1x1
         extra_padding = 0
-        self.skip_block = False
         # lossless downsample network on
+        self.skip_block = False
+        self.shrink = None
         self.order = getattr(args, "order", 'none')
         if 'ReShapeResolution' in args.keyword and stride != 1:
             shrink = []
@@ -140,8 +141,6 @@ class BasicBlock(nn.Module):
 
             if 's1x1' in args.keyword:
                 sconv3x3 = conv1x1
-        else:
-            self.shrink = None
         # lossless downsample network off
 
         # Prone network on
@@ -621,6 +620,10 @@ def resnet18(args):
 
 def resnet20(args):
     model = ResNet(BasicBlock, [3, 3, 3], args)
+    return model
+
+def resnet20_(args):
+    model = ResNet(BasicBlock, [2, 2, 3, 2], args)
     return model
 
 def resnet32(args):
