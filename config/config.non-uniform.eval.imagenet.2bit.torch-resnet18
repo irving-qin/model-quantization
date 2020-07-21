@@ -1,0 +1,31 @@
+dataset='imagenet'
+root=$FASTDIR/data/imagenet
+
+model='pytorch-resnet18'
+#options="$options --width_alpha 0.25"
+
+train_batch=256
+val_batch=50
+
+case='imagenet-non-uniform-finetune-2bit-wt_qg1_var_mean-nds_wd2.5e-5-clrd_sc3.0-sgd_0'
+keyword='debug,imagenet,dorefa,fm_non-uniform,wt_lsq'
+
+pretrained='none'
+pretrained='resnet18_w32a32.pth'
+options="$options --pretrained $pretrained"
+
+ options="$options --tensorboard"
+ options="$options --verbose"
+#options="$options -j6"
+ options="$options -e"
+ options="$options -r"
+#options="$options --fp16 --opt_level O1"
+
+ options="$options --fm_bit 2 --fm_enable"
+ options="$options --wt_bit 2 --wt_enable"
+ options="$options --fm_boundary 1.0"
+ options="$options --wt_boundary 1.0"
+ options="$options --fm_scale 3.0"
+ options="$options --wt_scale 1.0"
+ options="$options --wt_quant_group 1"
+ options="$options --wt_adaptive var-mean"

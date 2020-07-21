@@ -1,0 +1,24 @@
+
+dataset='imagenet'
+root=$FASTDIR/data/imagenet
+
+model='mobilenetv2'
+#options="$options --width_alpha 0.25"
+
+train_batch=256
+val_batch=50
+
+case='imagenet-baseline-stratch-fp-cbas_4'
+keyword='imagenet,origin,cbas'
+
+pretrained='imagenet-fr-alqnet-stratch-fp-cbas_4-model_best.pth.tar'
+options="$options --pretrained $pretrained"
+
+ options="$options --tensorboard"
+ options="$options --verbose"
+#options="$options --aa"
+#options="$options -j2"
+#options="$options -r"
+ options="$options -e"
+#options="$options --fp16 --opt_level O1"
+
