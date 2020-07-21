@@ -1,0 +1,44 @@
+
+dataset='dali'
+root=$FASTDIR/data/imagenet
+
+model='resnet18'
+#options="$options --width_alpha 0.25"
+
+train_batch=128
+val_batch=50
+
+# fm boudary (fb) = 1.0
+case='dali-dorefa-finetune-2bit-bacs-fb_1.0-wt_gq-sgd_0-O1'
+keyword='imagenet,origin,preBN,bacs,custom-update,debug,dorefa'
+
+pretrained='none'
+pretrained='dali-dorefa-stratch-fp-bacs_0-model_best.pth.tar'
+options="$options --pretrained $pretrained"
+
+ options="$options --tensorboard"
+ options="$options --verbose"
+ options="$options -j2"
+#options="$options -g0"
+#options="$options --aa"
+#options="$options --seed 3"
+#options="$options -r"
+#options="$options --re_init"
+#options="$options -e"
+ options="$options --fp16 --opt_level O1"
+#options="$options --stable 20"
+#options="$options --mixup_enable"
+ options="$options --decay_small"
+
+ epochs=40
+ options="$options --lr 5e-3 --lr_policy custom_step --lr_decay 0.1 --lr_custom_step 15,25,35 --wd 1e-4 --nesterov"
+#options="$options --lr 5e-3 --lr_policy sgdr --lr_custom_step 40 --eta_min 1e-6 --wd 1e-4 --nesterov"
+
+ options="$options --fm_bit 2 --fm_enable"
+ options="$options --wt_bit 2 --wt_enable"
+ options="$options --fm_boundary 1.0"
+ options="$options --wt_boundary 1.0"
+#options="$options --wt_quant_group 1"
+#options="$options --wt_adaptive var-mean"
+
+

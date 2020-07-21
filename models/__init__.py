@@ -2,7 +2,7 @@
 import logging
 
 try:
-    from .resnet_ import resnet18, resnet20, resnet32, resnet34, resnet44, resnet50, resnet101
+    from .resnet_ import resnet18, resnet20_, resnet20, resnet32, resnet34, resnet44, resnet50, resnet101
     from .resnet  import resnet18 as pytorch_resnet18
     from .resnet  import resnet34 as pytorch_resnet34
     from .resnet  import resnet50 as pytorch_resnet50
@@ -38,6 +38,7 @@ model_zoo = [
   'se-resnet50',
   'resnet18',
   'resnet20',
+  'resnet20_',
   'resnet32',
   'resnet34',
   'resnet44',
@@ -103,6 +104,8 @@ def get_model(args):
         return resnet18(args), args
     elif args.model == 'resnet20':
         return resnet20(args), args
+    elif args.model == 'resnet20_':
+        return resnet20_(args), args
     elif args.model == 'resnet32':
         return resnet32(args), args
     elif args.model == 'resnet34':
