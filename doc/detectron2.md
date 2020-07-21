@@ -92,6 +92,10 @@ We provide pretrained models gradually in [google drive](https://drive.google.co
    git difftool quantization master detectron2/config/defaults.py
    ```
 
+## Known Issues
+
+   See [know issues](./known-issues.md)
+   
 ## Training and Testing
 
   Training and testing methods follow original projects ( [detectron2](https://github.com/facebookresearch/detectron2) or [aim-uofa/AdelaiDet](https://github.com/aim-uofa/AdelaiDet) ).
