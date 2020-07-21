@@ -159,7 +159,7 @@ class DuplicateModule(nn.Module):
         self.model = module
         self.duplicates = []
         for i in range(1, num):
-            self.duplicates.append(deepcopy(self.module))
+            self.duplicates.append(deepcopy(self.model))
 
     def forward(self, x):
         result = []
