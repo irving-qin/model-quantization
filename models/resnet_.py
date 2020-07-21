@@ -148,7 +148,7 @@ class BasicBlock(nn.Module):
             fconv3x3 = qprone
             sconv3x3 = qprone
 
-            if 'no_prone_downsample' in args.keyword and stride != 1 and keepdim:
+            if ('no_prone_downsample' in args.keyword and stride != 1 and keepdim) or 'f3x3' in args.keyword:
                 fconv3x3 = conv3x3
 
             if 's1x1' in args.keyword:
