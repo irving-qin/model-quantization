@@ -592,6 +592,10 @@ def resnet20(args):
     model = ResNet(BasicBlock, [3, 3, 3], args)
     return model
 
+def resnet20_(args):
+    model = ResNet(BasicBlock, [2, 2, 3, 2], args)
+    return model
+
 def resnet32(args):
     model = ResNet(BasicBlock, [5, 5, 5], args)
     return model
