@@ -121,9 +121,11 @@ class BasicBlock(nn.Module):
                         shrink.append(norm(planes, args))
                 if i == 'a':
                     shrink.append(actv(args))
-            self.shrink = nn.Sequential(*shrink)
-            inplanes = planes
-            stride = 1
+
+            if 'f3x3' not in args.keyword:
+                self.shrink = nn.Sequential(*shrink)
+                inplanes = planes
+                stride = 1
 
             if 'f0x0' in args.keyword:
                 fconv3x3 = conv0x0
