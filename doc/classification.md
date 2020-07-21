@@ -3,77 +3,75 @@
 ## Install
 
 1. Clone the repo (change the `FASTDIR` as perfered):
-```
-export FASTDIR=/workspace
-cd $FASTDIR/git/
-git clone https://github.com/blueardour/model-quantization
-git clone https://github.com/blueardour/pytorch-utils
-cd model-quantization
-ln -s ../pytorch-utils utils
-
-# create separate log and weight folders (optional, if symbol link not created, the script will create these folders under the project path)
-#mkdir -p /data/pretrained/pytorch/model-quantization/{exp,weights}
-#ln -s /data/pretrained/pytorch/model-quantization/exp .
-#ln -s /data/pretrained/pytorch/model-quantization/weights .
-```
-
+   ```
+   export FASTDIR=/workspace
+   cd $FASTDIR/git/
+   git clone https://github.com/blueardour/model-quantization
+   git clone https://github.com/blueardour/pytorch-utils
+   cd model-quantization
+   ln -s ../pytorch-utils utils
+   
+   # create separate log and weight folders (optional, if symbol link not created, the script will create these folders under the project path)
+   #mkdir -p /data/pretrained/pytorch/model-quantization/{exp,weights}
+   #ln -s /data/pretrained/pytorch/model-quantization/exp .
+   #ln -s /data/pretrained/pytorch/model-quantization/weights .
+   ```
+   
 2. Install prerequisite packages
-```
-cd $FASTDIR/git/model-quantization
-# python 3 is required
-pip install -r requirement.txt
-```
-Quantization for the classification task has not strict requirement on the pytorch version. However, other tasks such as detection and segmentation require a higher version pytorch. `detectron2` currently require `Torch 1.4`+. Besides, the CUDA version on the machine is advised to keep the same with the one compiling the pytorch.
+   ```
+   cd $FASTDIR/git/model-quantization
+   # python 3 is required
+   pip install -r requirement.txt
+   ```
+   Quantization for the classification task has not strict requirement on the pytorch version. However, other tasks such as detection and segmentation require a higher version pytorch. `detectron2` currently require `Torch 1.4`+. Besides, the CUDA version on the machine is advised to keep the same with the one compiling the pytorch.
 
 3. Install Nvidia image pre-processing packages and mix precision training packages (optional, highly recommend)
 
-[Nvidia Dali](https://github.com/NVIDIA/DALI) 
+   [Nvidia Dali](https://github.com/NVIDIA/DALI) 
 
-[Nvidia Mix precision training package](https://github.com/NVIDIA/apex)
+   [Nvidia Mix precision training package](https://github.com/NVIDIA/apex)
 
 ## Dataset
 
-This repo supports the Imagenet dataset and CIFAR dataset. 
-Create necessary folders and prepare the datasets. Example:
+   This repo supports the Imagenet dataset and CIFAR dataset. Create necessary folders and prepare the datasets. Example:
 
-```
-# dataset
-mkdir -p /data/cifar
-mkdir -p /data/imagenet
-# download imagnet and move the train and evaluation data in in /data/imagenet/{train,val}, respectively.
-# cifar dataset can be downloaded on the fly
-```
+   ```
+   # dataset
+   mkdir -p /data/cifar
+   mkdir -p /data/imagenet
+   # download imagnet and move the train and evaluation data in in /data/imagenet/{train,val}, respectively.
+   # cifar dataset can be downloaded on the fly
+   ```
 
 ## Pretrained models and Quantization Results
 
-Some of the quantization results are listed in [result_cls.md](./result_cls.md). We provide pretrained models in [google drive](https://drive.google.com/drive/folders/1vwxth9UB8AMbYP7cJxaWE9S0z9fueZ5J?usp=sharing)
+   Some of the quantization results are listed in [result_cls.md](./result_cls.md). We provide pretrained models in [google drive](https://drive.google.com/drive/folders/1vwxth9UB8AMbYP7cJxaWE9S0z9fueZ5J?usp=sharing)
 
 ## Quick Start
 
-Both training and testing employ the `train.sh` script. Directly call the `main.py` is also possible.
+   Both training and testing employ the `train.sh` script. Directly call the `main.py` is also possible.
 
-```
-bash train.sh config.xxxx
-```
+   ```
+   bash train.sh config.xxxx
+   ```
+   
+   `config.xxxx` is the configuration file, which contains network architecture, quantization related and training related parameters. For more about the supported options, refer below [Training script options](./classification.md#Training-script-options) and [config.md](./config.md). Also refer the examples in `config` subfolder.
+   
+   Sometime the training is time-consuming. `start_on_terminate.sh` can be used to wait the process to terminate and start another round of training.
+   
+   ```
+   # wait in a screen shell
+   screen -S next-round
+   bash start_on_terminate.sh [current training thread pid] [next round config.xxxx]
+   # Ctl+A D to detach screen to backend
+   ```
+   
+   Besides, `tools.py` provides many useful functions for debug / verbose / model convert. Refer [tools.md](./tools.md) for detailed usage.
 
-`config.xxxx` is the configuration file, which contains network architecture, quantization related and training related parameters. For more about the supported options, refer below [Training script options](./classification.md#Training-script-options) and [config.md](./config.md). Also refer the examples in `config` subfolder.
 
-Sometime the training is time-consuming. `start_on_terminate.sh` can be used to wait the process to terminate and start another round of training.
+## Known Issues
 
-```
-# wait in a screen shell
-screen -S next-round
-bash start_on_terminate.sh [current training thread pid] [next round config.xxxx]
-# Ctl+A D to detach screen to backend
-```
-
-Besides, `tools.py` provides many useful functions for debug / verbose / model convert. Refer [tools.md](./tools.md) for detailed usage.
-
-***ALl complains about the following two warnings do not affect the project.***
-```
-Failing to import plugin, ModuleNotFoundError("No module named 'plugin'")
-loading third party model failed cannot import name 'model_zoo' from 'third_party' (unknown location)
-```
+   See [know issues](./known-issues.md)
 
 
 ## Training script options
