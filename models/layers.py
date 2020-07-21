@@ -2,6 +2,8 @@
 import torch
 import torch.nn as nn
 
+from .quant import conv3x3, conv1x1, conv0x0
+
 class SliceBN(nn.Module):
     def __init__(self, channel, group):
         super(SliceBN, self).__init__()
@@ -120,9 +122,12 @@ def actv(args=None):
 
 # TResNet: High Performance GPU-Dedicated Architecture (https://arxiv.org/pdf/2003.13630v1.pdf)
 class TResNetStem(nn.Module):
-    def __init__(self, out_channel, in_channel=3, stride=4, kernel_size=1, force_fp=True, args=None):
+    def __init__(self, out_channel, in_channel=3, stride=4, kernel_size=1, args=None):
         super(TResNetStem, self).__init__()
         self.stride = stride
+        force_fp = True
+        if hasattr(args, 'keyword'):
+            force_fp = 'real_skip' in args.keyword
         assert kernel_size in [1, 3], "Error reshape conv kernel"
         if kernel_size == 1:
             self.conv = conv1x1(in_channel*stride*stride, out_channel, args=args, force_fp=force_fp)

@@ -1,3 +1,4 @@
+# folder
 exp
 full_precision_weights/
 weights
@@ -11,16 +12,23 @@ log
 *.o
 *.bak
 .python-version
-memory.config
-config.*
 :w*
 ;w*
 *.txt
 *.pyc
 *-origin.py
-convert_onnx.py
-convert_onnx.sh
 .config*
 *.swn
 *.swm
 *.swo
+
+# env
+.env
+
+# script
+convert_onnx.py
+convert_onnx.sh
+
+# config
+memory.config
+config.*

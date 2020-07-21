@@ -3,7 +3,7 @@ import torch.nn as nn
 import logging
 import numpy as np
 
-from .quant import conv3x3, conv1x1
+from .quant import conv3x3, conv1x1, conv0x0
 from .layers import norm, actv, TResNetStem
 from .prone import qprone
 
@@ -66,9 +66,6 @@ class BasicBlock(nn.Module):
         if self.addition_skip and args.verbose:
             logging.info("warning: add addition skip, not the origin resnet")
 
-        # quantize skip connection ?
-        real_skip = 'real_skip' in args.keyword
-
         for i in range(2):
             setattr(self, 'relu%d' % (i+1), nn.ModuleList([actv(args) for j in range(args.base)]))
         if 'fix' in self.args.keyword and ('cbas' in self.args.keyword or 'cbsa' in self.args.keyword):
@@ -88,13 +85,35 @@ class BasicBlock(nn.Module):
         else:
             self.seq = None
 
+        if 'bacs' in args.keyword or 'bcas' in args.keyword: 
+            self.bn1 = nn.ModuleList([norm(inplanes, args) for j in range(args.base)])
+            if 'fix' in self.args.keyword:
+                self.fix_bn = norm(planes, args)
+        else:
+            self.bn1 = nn.ModuleList([norm(planes, args) for j in range(args.base)])
+        self.bn2 = nn.ModuleList([norm(planes, args) for j in range(args.base)])
+
+        keepdim = True
+        fconv3x3 = conv3x3
+        sconv3x3 = conv3x3
+        qconv1x1 = conv1x1
+        extra_padding = 0
+        self.skip_block = False
         # lossless downsample network on
         self.order = getattr(args, "order", 'none')
         if 'ReShapeResolution' in args.keyword and stride != 1:
             shrink = []
+            kernel_size = 1
+            if 'ldn3x3' in args.keyword:
+                kernel_size = 3
+                self.skip_block = True
+                fconv3x3 = conv0x0
+                sconv3x3 = conv0x0
+                qconv1x1 = conv0x0
+
             for i in self.order:
                 if i == 'c':
-                    shrink.append(TResNetStem(planes, in_channel=inplanes, stride=stride, args=args, force_fp=real_skip))
+                    shrink.append(TResNetStem(planes, in_channel=inplanes, stride=stride, kernel_size=kernel_size, args=args))
                 if i == 'b':
                     if 'preBN' in args.keyword:
                         shrink.append(norm(inplanes, args))
@@ -102,26 +121,29 @@ class BasicBlock(nn.Module):
                         shrink.append(norm(planes, args))
                 if i == 'a':
                     shrink.append(actv(args))
-            self.shrink = nn.Sequential(*shrink)
-            inplanes = planes
-            stride = 1
+
+            if 'f3x3' not in args.keyword:
+                self.shrink = nn.Sequential(*shrink)
+                inplanes = planes
+                stride = 1
+
+            if 'f0x0' in args.keyword:
+                fconv3x3 = conv0x0
+                self.bn1 = nn.ModuleList([nn.Sequential() for j in range(args.base)])
+                self.relu1 = nn.ModuleList([nn.Sequential() for j in range(args.base)])
+                if self.addition_skip:
+                    logging.info("warning: update addition skip to be False")
+                self.addition_skip = False
+
+            if 'f1x1' in args.keyword:
+                fconv3x3 = conv1x1
+
+            if 's1x1' in args.keyword:
+                sconv3x3 = conv1x1
         else:
             self.shrink = None
         # lossless downsample network off
 
-        if 'bacs' in args.keyword or 'bcas' in args.keyword: 
-            self.bn1 = nn.ModuleList([norm(inplanes, args, feature_stride=feature_stride) for j in range(args.base)])
-            if 'fix' in self.args.keyword:
-                self.fix_bn = norm(planes, args, feature_stride=feature_stride*stride)
-        else:
-            self.bn1 = nn.ModuleList([norm(planes, args, feature_stride=feature_stride*stride) for j in range(args.base)])
-        self.bn2 = nn.ModuleList([norm(planes, args, feature_stride=feature_stride*stride) for j in range(args.base)])
-
-        keepdim = True
-        fconv3x3 = conv3x3
-        sconv3x3 = conv3x3
-        qconv1x1 = conv1x1
-        extra_padding = 0
         # Prone network on
         if 'prone' in args.keyword:
             fconv3x3 = qprone
@@ -129,6 +151,11 @@ class BasicBlock(nn.Module):
 
             if 'no_prone_downsample' in args.keyword and stride != 1 and keepdim:
                 fconv3x3 = conv3x3
+
+            if 's1x1' in args.keyword:
+                sconv3x3 = conv1x1
+            if 's3x3' in args.keyword:
+                sconv3x3 = conv3x3
 
             if 'preBN' in args.keyword:
                 raise NotImplementedError("preBN not supported for the Prone yet")
@@ -146,6 +173,7 @@ class BasicBlock(nn.Module):
 
         # downsample branch
         self.enable_skip = stride != 1 or inplanes != planes
+        real_skip = 'real_skip' in args.keyword
         downsample = []
         if stride != 1:
             downsample.append(nn.AvgPool2d(stride))
@@ -206,6 +234,9 @@ class BasicBlock(nn.Module):
 
         if self.shrink is not None:
             x = self.shrink(x)
+
+            if self.skip_block:
+                return x
 
         if not self.enable_skip:
             residual = x
