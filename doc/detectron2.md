@@ -96,7 +96,7 @@ We provide pretrained models gradually in [google drive](https://drive.google.co
 
   Training and testing methods follow original projects ( [detectron2](https://github.com/facebookresearch/detectron2) or [aim-uofa/AdelaiDet](https://github.com/aim-uofa/AdelaiDet) ).
   
-  To obtain the quantization version of the given models, please modify corresponding configuration files by setting quantization related options introduced in the quantization versions of projects. Example of the configurations for quantization are provided in `detectron2/config` and `AdelaiDet/config`, respectively. To learn how the newly introduced options impact the quantization procedure, refer option introduction in [classification.md](./classification.md#Training-script-options) for more detail explanation. We also give an advised flow for the model quanzation, see below [guide](./etectron2.md#Special-guide-for-quantization) and [examples](./detectron2.md#Examples) for demonstration.
+  To obtain the quantization version of the given models, please modify corresponding configuration files by setting quantization related options introduced in the quantization versions of projects. Example of the configurations for quantization are provided in `detectron2/config` and `AdelaiDet/config`, respectively. To learn how the newly introduced options impact the quantization procedure, refer option introduction in [classification.md](./classification.md#Training-script-options) for more detail explanation. We also give an advised flow for the model quanzation, see below [guide](./detectron2.md#special-guide-for-quantization) and [examples](./detectron2.md#Examples) for demonstration.
 
 ## Special guide for quantization
 
