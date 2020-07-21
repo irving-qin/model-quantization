@@ -4,11 +4,11 @@
 ## Install
 
 
-1. install dependent packages according to [classification.md](./classification.md)
+1. install quantization dependent packages according to [classification.md](./classification.md)
 
-   Also, refer the [original dependencies](https://github.com/blueardour/EDSR-PyTorch#dependencies)
+   Also, refer the [original dependencies](https://github.com/blueardour/EDSR-PyTorch#dependencies) for the SR task dependencies.
 
-2. download the [custom EDSR-PyTorch](https://github.com/blueardour/EDSR-PyTorch) project.
+2. download the [quantization version of EDSR-PyTorch](https://github.com/blueardour/EDSR-PyTorch) project.
 
    ```
    cd /workspace/git/
