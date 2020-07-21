@@ -1,30 +1,49 @@
 
 import torch
 import torch.nn as nn
+from copy import deepcopy
 
 from .quant import conv3x3, conv1x1, conv0x0
 
-class SliceBN(nn.Module):
-    def __init__(self, channel, group):
-        super(SliceBN, self).__init__()
-        self.group = group
-        self.bn = nn.ModuleList([nn.BatchNorm2d(channel) for i in range(group * group)])
+def seq_c_b_a_s(x, conv, relu, bn, skip=None, skip_enable=False):
+    out = conv(x)
+    out = bn(out)
+    out = relu(out)
+    if skip_enable:
+        out += skip
+    return out
 
-    def forward(self, x):
-        group = self.group
-        if group == 1:
-            return self.bn[0](x)
-        else:
-            shape = x.shape
-            x = x.reshape(shape[0], shape[1], group, shape[2] // group, group, shape[3] // group)
-            y = x.new_zeros(x.shape)
-            for i in range(self.group):
-                for j in range(self.group):
-                    slices = x[:,:, i, :, j, :]
-                    slices = self.bn[i*group+j](slices)
-                    y[:,:, i, :, j, :] = slices
-            y = y.reshape(shape)
-            return y
+def seq_c_b_s_a(x, conv, relu, bn, skip=None, skip_enable=False):
+    out = conv(x)
+    out = bn(out)
+    if skip_enable:
+        out += skip
+    out = relu(out)
+    return out
+
+def seq_c_a_b_s(x, conv, relu, bn, skip=None, skip_enable=False):
+    out = conv(x)
+    out = relu(out)
+    out = bn(out)
+    if skip_enable:
+        out += skip
+    return out
+
+def seq_b_c_a_s(x, conv, relu, bn, skip=None, skip_enable=False):
+    out = bn(x)
+    out = conv(out)
+    out = relu(out)
+    if skip_enable:
+        out += skip
+    return out
+
+def seq_b_a_c_s(x, conv, relu, bn, skip=None, skip_enable=False):
+    out = bn(x)
+    out = relu(out)
+    out = conv(out)
+    if skip_enable:
+        out += skip
+    return out
 
 class FrozenBatchNorm2d(nn.Module):
     def __init__(self, num_features, eps=1e-5):
@@ -72,15 +91,6 @@ def norm(channel, args=None, feature_stride=None):
         group = getattr(args, "fm_quant_group", 2)
         return nn.GroupNorm(group, channel)
 
-    if 'spatial' in keyword:
-        quant_group = getattr(args, 'fm_quant_group', None)
-        if quant_group is None or feature_stride is None:
-            return nn.BatchNorm2d(channel)
-
-        quant_group = quant_group // feature_stride
-        quant_group = 1 if quant_group < 1 else quant_group
-        return SliceBN(channel, group=quant_group)
-
     if "static-bn" in keyword:
         return StaticBatchNorm2d(channel)
 
@@ -89,15 +99,14 @@ def norm(channel, args=None, feature_stride=None):
 
     return nn.BatchNorm2d(channel)
 
-class EnchanceReLU(nn.ReLU):
+class ShiftReLU(nn.ReLU):
     def __init__(self, args):
-        super(EnchanceReLU, self).__init__(inplace=True)
-        self.shift = getattr(args, 'fm_boundary', 0.25)
+        super(ShiftReLU, self).__init__(inplace=True)
+        self.shift = nn.Parameter(torch.zeros(1), requires_grad=True)
 
     def forward(self, x):
         x = x + self.shift
-        x = super(EnchanceReLU, self).forward(x)
-        x = x - self.shift
+        x = super(ShiftReLU, self).forward(x)
         return x
 
 
@@ -115,8 +124,8 @@ def actv(args=None):
     if 'NReLU' in keyword:
         return nn.Sequential()
 
-    if 'enhance-info' in keyword:
-        return EnchanceReLU(args)
+    if 'SReLU' in keyword:
+        return ShiftReLU(args)
 
     return nn.ReLU(inplace=True)
 
@@ -141,4 +150,29 @@ class TResNetStem(nn.Module):
         x = x.transpose(2, 5).reshape(B, C * self.stride * self.stride, H // self.stride, W // self.stride)
         x = self.conv(x)
         return x
+
+class DuplicateModule(nn.Module):
+    def __init__(self, module, num):
+        super(DuplicateModule, self).__init__()
+        assert num >=1, "Num should greater or equal 1"
+
+        self.model = module
+        self.duplicates = []
+        for i in range(1, num):
+            self.duplicates.append(deepcopy(self.module))
+
+    def forward(self, x):
+        result = []
+        result.append(self.model(x))
+        for model in self.duplicates:
+            result.append(model(x))
+
+        if len(result) > 1:
+            return torch.cat(result, dim=1)
+        else:
+            return result[0]
+
+def Duplicate(module, num=1):
+    return DuplicateModule(module, num)
+
 

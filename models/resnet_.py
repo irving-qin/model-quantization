@@ -5,47 +5,8 @@ import numpy as np
 
 from .quant import conv3x3, conv1x1, conv0x0
 from .layers import norm, actv, TResNetStem
+from .layers import seq_c_b_a_s, seq_c_b_s_a, seq_c_a_b_s, seq_b_c_a_s, seq_b_a_c_s
 from .prone import qprone
-
-def seq_c_b_a_s(x, conv, relu, bn, skip, skip_enbale):
-    out = conv(x)
-    out = bn(out)
-    out = relu(out)
-    if skip_enbale:
-        out += skip
-    return out
-
-def seq_c_b_s_a(x, conv, relu, bn, skip, skip_enbale):
-    out = conv(x)
-    out = bn(out)
-    if skip_enbale:
-        out += skip
-    out = relu(out)
-    return out
-
-def seq_c_a_b_s(x, conv, relu, bn, skip, skip_enbale):
-    out = conv(x)
-    out = relu(out)
-    out = bn(out)
-    if skip_enbale:
-        out += skip
-    return out
-
-def seq_b_c_a_s(x, conv, relu, bn, skip, skip_enbale):
-    out = bn(x)
-    out = conv(out)
-    out = relu(out)
-    if skip_enbale:
-        out += skip
-    return out
-
-def seq_b_a_c_s(x, conv, relu, bn, skip, skip_enbale):
-    out = bn(x)
-    out = relu(out)
-    out = conv(out)
-    if skip_enbale:
-        out += skip
-    return out
 
 '''
 BasicBlock:

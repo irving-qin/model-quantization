@@ -4,29 +4,20 @@ import logging
 import math
 
 from .quant import conv3x3, conv1x1
-from .layers import norm
+from .layers import norm, actv, Duplicate
+from .layers import seq_c_b_a_s, seq_c_b_s_a, seq_b_a_c_s
 
-def seq_c_b_a_s(x, conv, relu, bn, skip=None, skip_enable=False):
-    out = conv(x)
-    out = bn(out)
-    out = relu(out)
-    if skip_enable:
-        out += skip
-    return out
-
-def seq_b_a_c_s(x, conv, relu, bn, skip=None, skip_enable=False):
-    out = bn(x)
-    out = relu(out)
-    out = conv(out)
-    if skip_enable:
-        out += skip
-    return out
-
-def conv_bn(inp, oup, stride):
+def conv_bn(inp, oup, stride, args=None):
     return nn.Sequential(
         nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
+
+        # use norm or nn.BatchNorm2d ?
         nn.BatchNorm2d(oup),
-        nn.ReLU(inplace=True)
+        #norm(oup, args),
+
+        # use actv or nn.ReLU ?
+        actv(args)
+        #nn.ReLU(inplace=True)
     )
 
 class InvertedResidual(nn.Module):
@@ -196,7 +187,7 @@ class MobileNetV2(nn.Module):
                 m.bias.data.zero_()
 
 class conv_dw(nn.Module):
-    def __init__(self, inp, outp, stride, args):
+    def __init__(self, inp, outp, stride, args=None):
         super(conv_dw, self).__init__()
         self.stride = stride
         self.outp = outp
@@ -213,65 +204,112 @@ class conv_dw(nn.Module):
             self.scale2 = nn.ParameterList([nn.Parameter(torch.ones(1) / self.base, requires_grad=True) for j in range(self.base)])
 
         for i in range(2):
-            setattr(self, 'relu%d' % (i+1), nn.ModuleList([nn.ReLU(inplace=True) for j in range(self.base)]))
+            setattr(self, 'relu%d' % (i+1), nn.ModuleList([actv(args) for j in range(self.base)]))
 
         if 'cbas' in args.keyword: # default ?
             self.seq = seq_c_b_a_s
+        elif 'cbsa' in args.keyword:
+            self.seq = seq_c_b_s_a
         elif 'bacs' in args.keyword:
             self.seq = seq_b_a_c_s
         else:
             self.seq = None
 
-        keep_depth_conv = 'keep_dp' in args.keyword
-        keep_point_conv = 'keep_pt' in args.keyword
-        self.depth_conv = nn.ModuleList([conv3x3(inp, inp, stride=stride, groups=inp, args=args, force_fp=keep_depth_conv) for i in range(self.base)])
+        groups = inp
+        self.is_bireal = False
+        self.is_block_skip = False
+        if 'origin' not in args.keyword:
+            if 'normal3x3' in args.keyword:
+                groups = 1
+
+            if 'bireal' in args.keyword:
+                self.is_bireal = True
+
+            if 'block_skip' in args.keyword:
+                self.is_block_skip = True
+
+            assert not (self.is_block_skip and self.is_bireal), "bireal and block_skip cannot be set at the same time"
+
+        # whether quantize or keep full precision ?
+        keep_depth_conv = 'real_dp' in args.keyword
+        keep_point_conv = 'real_pt' in args.keyword
+
+        self.depth_conv = nn.ModuleList([conv3x3(inp, inp, stride=stride, groups=groups, args=args, force_fp=keep_depth_conv) for i in range(self.base)])
         self.point_conv = nn.ModuleList([conv1x1(inp, outp, stride=1, args=args, force_fp=keep_point_conv) for i in range(self.base)])
 
         self.bn1 = nn.ModuleList([norm(inp, args) for j in range(self.base)])
-        if 'cbas' in args.keyword:
+        if 'cbas' in args.keyword or 'cbsa' in args.keyword:
             self.bn2 = nn.ModuleList([norm(outp, args) for j in range(self.base)])
         elif 'bacs' in args.keyword:
             self.bn2 = nn.ModuleList([norm(inp, args) for j in range(self.base)])
 
-        self.point_scale = nn.ModuleList([None for j in range(self.base)])
-        if 'origin' not in args.keyword:
-            if 'depth_skip' in args.keyword:
-                if 'avg_pool' in args.keyword:
-                    self.depth_skip = nn.Sequential(nn.AvgPool2d(stride))
+        # skip connect structure on
+        if self.is_block_skip:
+            real_skip = 'real_skip' in args.keyword
+            downsample = []
+            if stride != 1:
+                downsample.append(nn.AvgPool2d(stride))
+            else:
+                downsample.append(nn.Sequential())
+            if inp != outp:
+                if 'cbas' in args.keyword or 'cbsa' in args.keyword:
+                    downsample.append(conv1x1(inp, outp, args=args, force_fp=real_skip))
+                    downsample.append(norm(outp, args))
+                    if 'fix' not in args.keyword:
+                        downsample.append(actv(args))
                 else:
-                    self.depth_skip = nn.Sequential(nn.MaxPool2d(stride))
+                    raise RuntimeError("should not reach here")
 
-            if 'point_scale' in args.keyword:
-                self.point_scale = nn.ParameterList([nn.Parameter(torch.ones(inp, 1, 1), requires_grad=True) for j in range(self.base)])
+            if 'singleconv' in args.keyword:
+                for i, n in enumerate(downsample):
+                    if isinstance(n, nn.AvgPool2d):
+                        downsample[i] = nn.Sequential()
+                    if isinstance(n, nn.Conv2d):
+                        downsample[i] = conv1x1(inp, outp, stride=stride, args=args, force_fp=real_skip)
 
-            if 'point_skip' in args.keyword:
-                self.point_skip = nn.Sequential(
-                        conv1x1(inp, outp, stride=1, args=args),
-                        nn.BatchNorm2d(outp),
-                        nn.ReLU(inplace=True)
-                        )
+            self.skip = nn.Sequential(*downsample)
+
+        if self.is_bireal:
+            if stride != 1 and inp != outp:
+                duplicate_num = outp // inp
+                if 'react' in args.keyword:
+                    assert 'cbas' in args.keyword or 'cbsa' in args.keyword, "the ReAct employs cbas or cbsa sequence"
+                    self.skip1 = nn.AvgPool2d(stride)
+                    self.skip2 = Duplicate(nn.Sequential(), duplicate_num)
+                    self.point_conv = nn.ModuleList([Duplicate(conv1x1(inp, inp, stride=1, args=args, force_fp=keep_point_conv), duplicate_num) for i in range(self.base)])
+                    self.bn2 = nn.ModuleList([Duplicate(norm(inp, args), duplicate_num) for j in range(self.base)])
+                else:
+                    raise RuntimeError("should not reach here")
+            else:
+                self.skip1 = nn.Sequential()
+                self.skip2 = nn.Sequential()
+        # skip connect structure off
 
     def forward(self, x):
-        result = None
-        if 'origin' not in self.args.keyword and 'depth_skip' in self.args.keyword:
-            result = self.depth_skip(x)
+        skip = None
 
+        # block level skip
+        if self.is_block_skip:
+            skip = self.skip(x)
+
+        # depth-wise conv
+        if self.is_bireal:
+            skip = self.skip1(x)
+        result = None
         for depth, bn, relu, scale in zip(self.depth_conv, self.bn1, self.relu1, self.scale1):
-            out = self.seq(x, depth, relu, bn)
+            out = self.seq(x, depth, relu, bn, skip, self.is_bireal)
             if result is None:
                 result = scale * out
             else:
                 result = result + scale * out
 
-        #if 'origin' not in self.args.keyword and 'point_skip' in self.args.keyword:
-        #    result = self.point_skip(output)
-
+        # point-wise conv
         output = result
+        if self.is_bireal:
+            skip = self.skip2(output)
         result = None
-        for point_scale, point, bn, relu, scale in zip(self.point_scale, self.point_conv, self.bn2, self.relu2, self.scale2):
-            if point_scale is not None:
-                output = output * point_scale
-            out = self.seq(output, point, relu, bn)
+        for point, bn, relu, scale in zip(self.point_conv, self.bn2, self.relu2, self.scale2):
+            out = self.seq(output, point, relu, bn, skip, self.is_block_skip or self.is_bireal)
             if result is None:
                 result = scale * out
             else:
@@ -296,9 +334,9 @@ class MobileNetV1(nn.Module):
         if 'preBN' in args.keyword:
             self.root = nn.Conv2d(3, self.inplanes, 3, first_stride, 1, bias=False)
             #self.pooling = nn.AvgPool2d(args.input_size // downsample_size)
-            self.pooling = nn.Sequential(nn.BatchNorm2d(1024), nn.ReLU(inplace=True), nn.AdaptiveAvgPool2d((1,1)))
+            self.pooling = nn.Sequential(nn.BatchNorm2d(1024), actv(args), nn.AdaptiveAvgPool2d((1,1)))
         else:
-            self.root = conv_bn(3, self.inplanes, first_stride)
+            self.root = conv_bn(3, self.inplanes, first_stride, args=args)
             #self.pooling = nn.AvgPool2d(args.input_size // downsample_size)
             self.pooling = nn.AdaptiveAvgPool2d((1,1))
 
