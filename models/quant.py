@@ -153,6 +153,7 @@ class quantization(nn.Module):
 
         if 'dorefa' in self.args.keyword or 'pact' in self.args.keyword:
             self.method = 'dorefa'
+            self.gamma = 1
             if self.boundary is None:
                 self.boundary = 1.0
                 self.logger.info('update %s_boundary %r' % (self.tag, self.boundary))
@@ -171,11 +172,10 @@ class quantization(nn.Module):
                         setattr(self, "alpha%d" % i, nn.Parameter(torch.ones(1)))
                         getattr(self, "alpha%d" % i).data.fill_(self.scale / self.boundary)
                     self.choice = 'non-uniform'
-
-                    if 'gamma' in self.args.keyword:
+                    if 'closed_form' in self.args.keyword or 'fm_closed_form' in self.args.keyword:
                         self.basis = nn.Parameter(torch.ones (1), requires_grad=False)
                         self.auxil = nn.Parameter(torch.zeros(1), requires_grad=False)
-                        self.choice = self.choice + '-with-gamma'
+                        self.choice = self.choice + '-with-closed_form'
                 elif 'pact' in self.args.keyword:
                     self.quant = dorefa.qfn
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
@@ -208,15 +208,23 @@ class quantization(nn.Module):
                     self.quant = dorefa.qfn
                     self.clip_val = self.boundary
                     self.choice = 'dorefa-net'
+                if 'gamma' in self.args.keyword or 'wt_gamma' in self.args.keyword:
+                    self.gamma = nn.Parameter(torch.ones(self.quant_group, 1, 1, 1))
+                    self.choice = self.choice + '-with-gamma'
             elif self.tag == 'ot':
                 if 'lsq' in self.args.keyword or 'ot_lsq' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
                     self.quant = dorefa.LSQ
                     self.choice = 'lsq'
+                elif 'non-uniform' in self.args.keyword or 'pact' in self.args.keyword:
+                    raise RuntimeError("error keyword for the method, specific accurate tag please")
                 else: # Dorefa-Net
                     self.quant = dorefa.qfn
                     self.clip_val = self.boundary
                     self.choice = 'dorefa-net'
+                if 'gamma' in self.args.keyword or 'ot_gamma' in self.args.keyword:
+                    self.gamma = nn.Parameter(torch.ones(1, self.quant_group, 1, 1))
+                    self.choice = self.choice + '-with-gamma'
             else:
                 raise RuntimeError("error tag for the method")
 
@@ -376,7 +384,7 @@ class quantization(nn.Module):
                         y = self.quant.apply(y, self.num_levels - 1)
                         y = y * 2.0 - 1.0
                         y = y * self.clip_val
-                elif 'non-uniform' in self.args.keyword or 'fm_non-uniform' in self.args.keyword:
+                elif 'non-uniform' in self.args.keyword or '{}_non-uniform'.format(self.tag) in self.args.keyword:
                     if self.half_range:
                         y1 = x * self.alpha0
                         y1 = torch.clamp(y1, min=0, max=1)
@@ -400,7 +408,7 @@ class quantization(nn.Module):
                         y2 = torch.clamp(y2, min=0, max=1)
                         y2 = self.quant.apply(y2, self.custom_ratio)
                         y = y1 + y2
-                    if 'gamma' in self.args.keyword:
+                    if 'closed_form' in self.args.keyword or '{}_closed_form'.format(self.tag) in self.args.keyword:
                         if self.training:
                             self.auxil.data = dorefa.non_uniform_scale(x.detach(), y.detach())
                             self.update_bias(self.auxil.data)
@@ -412,6 +420,8 @@ class quantization(nn.Module):
                 else: # default dorefa
                     y = torch.clamp(x, min=0, max=self.clip_val)
                     y = self.quant.apply(y, self.num_levels, self.clip_val, self.adaptive)
+                if 'gamma' in self.args.keyword or '{}_gamma'.format(self.tag) in self.args.keyword:
+                    y = y * self.gamma
             elif self.tag == 'wt':
                 if self.adaptive == 'var-mean':
                     std, mean = torch.std_mean(x.data.reshape(self.quant_group, -1, 1, 1, 1), 1)
@@ -437,6 +447,8 @@ class quantization(nn.Module):
                     y = torch.tanh(x)
                     y = y / (2 * y.abs().max()) + 0.5
                     y = 2 * self.quant.apply(y, self.num_levels, self.clip_val, self.adaptive) - 1
+                if 'gamma' in self.args.keyword or 'wt_gamma' in self.args.keyword:
+                    y = y * self.gamma
             else:
                 raise RuntimeError("Should not reach here for Dorefa-Net method")
 
