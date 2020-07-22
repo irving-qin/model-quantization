@@ -6,6 +6,7 @@ import math
 from .quant import conv3x3, conv1x1
 from .layers import norm, actv, Duplicate
 from .layers import seq_c_b_a_s, seq_c_b_s_a, seq_b_a_c_s
+from .prone import qprone
 
 def conv_bn(inp, oup, stride, args=None):
     return nn.Sequential(
@@ -187,7 +188,7 @@ class MobileNetV2(nn.Module):
                 m.bias.data.zero_()
 
 class conv_dw(nn.Module):
-    def __init__(self, inp, outp, stride, args=None):
+    def __init__(self, inp, outp, stride, feature_stride=1, args=None):
         super(conv_dw, self).__init__()
         self.stride = stride
         self.outp = outp
@@ -216,12 +217,48 @@ class conv_dw(nn.Module):
             self.seq = None
 
         groups = inp
+        if 'normal3x3' in args.keyword:
+            groups = 1
+
+        self.bn1 = nn.ModuleList([norm(inp, args) for j in range(self.base)])
+        if 'cbas' in args.keyword or 'cbsa' in args.keyword:
+            self.bn2 = nn.ModuleList([norm(outp, args) for j in range(self.base)])
+        elif 'bacs' in args.keyword:
+            self.bn2 = nn.ModuleList([norm(inp, args) for j in range(self.base)])
+
+        qconv3x3 = conv3x3
+        qconv1x1 = conv1x1
+        extra_padding = 0
+        # Prone network on
+        if 'prone' in args.keyword:
+            qconv3x3 = qprone
+
+            if ('no_prone_downsample' in args.keyword and stride != 1):
+                qconv3x3 = conv3x3
+
+            if 'preBN' in args.keyword:
+                raise NotImplementedError("preBN not supported for the Prone yet")
+
+            if 'bn_before_restore' in args.keyword:
+                if qconv3x3 == qprone:
+                    self.bn1 = nn.ModuleList([nn.Sequential() for j in range(args.base)])
+                   
+            if stride != 1 and (args.input_size // feature_stride) % (2*stride) != 0:
+                extra_padding = ((2*stride) - ((args.input_size // feature_stride) % (2*stride))) // 2
+                logging.warning("extra pad of {} for Prone is added".format(extra_padding))
+        # Prone network off
+
+        # whether quantize or keep full precision ?
+        keep_depth_conv = 'real_dp' in args.keyword
+        keep_point_conv = 'real_pt' in args.keyword
+
+        self.depth_conv = nn.ModuleList([qconv3x3(inp, inp, stride=stride, groups=groups, padding=extra_padding+1, args=args, force_fp=keep_depth_conv) for i in range(self.base)])
+        self.point_conv = nn.ModuleList([qconv1x1(inp, outp, stride=1, args=args, force_fp=keep_point_conv) for i in range(self.base)])
+
+        # skip connect structure on
         self.is_bireal = False
         self.is_block_skip = False
         if 'origin' not in args.keyword:
-            if 'normal3x3' in args.keyword:
-                groups = 1
-
             if 'bireal' in args.keyword:
                 self.is_bireal = True
 
@@ -230,20 +267,6 @@ class conv_dw(nn.Module):
 
             assert not (self.is_block_skip and self.is_bireal), "bireal and block_skip cannot be set at the same time"
 
-        # whether quantize or keep full precision ?
-        keep_depth_conv = 'real_dp' in args.keyword
-        keep_point_conv = 'real_pt' in args.keyword
-
-        self.depth_conv = nn.ModuleList([conv3x3(inp, inp, stride=stride, groups=groups, args=args, force_fp=keep_depth_conv) for i in range(self.base)])
-        self.point_conv = nn.ModuleList([conv1x1(inp, outp, stride=1, args=args, force_fp=keep_point_conv) for i in range(self.base)])
-
-        self.bn1 = nn.ModuleList([norm(inp, args) for j in range(self.base)])
-        if 'cbas' in args.keyword or 'cbsa' in args.keyword:
-            self.bn2 = nn.ModuleList([norm(outp, args) for j in range(self.base)])
-        elif 'bacs' in args.keyword:
-            self.bn2 = nn.ModuleList([norm(inp, args) for j in range(self.base)])
-
-        # skip connect structure on
         if self.is_block_skip:
             real_skip = 'real_skip' in args.keyword
             downsample = []
@@ -253,7 +276,7 @@ class conv_dw(nn.Module):
                 downsample.append(nn.Sequential())
             if inp != outp:
                 if 'cbas' in args.keyword or 'cbsa' in args.keyword:
-                    downsample.append(conv1x1(inp, outp, args=args, force_fp=real_skip))
+                    downsample.append(qconv1x1(inp, outp, args=args, force_fp=real_skip))
                     downsample.append(norm(outp, args))
                     if 'fix' not in args.keyword:
                         downsample.append(actv(args))
@@ -265,7 +288,7 @@ class conv_dw(nn.Module):
                     if isinstance(n, nn.AvgPool2d):
                         downsample[i] = nn.Sequential()
                     if isinstance(n, nn.Conv2d):
-                        downsample[i] = conv1x1(inp, outp, stride=stride, args=args, force_fp=real_skip)
+                        downsample[i] = qconv1x1(inp, outp, stride=stride, args=args, force_fp=real_skip)
 
             self.skip = nn.Sequential(*downsample)
 
@@ -276,7 +299,8 @@ class conv_dw(nn.Module):
                     assert 'cbas' in args.keyword or 'cbsa' in args.keyword, "the ReAct employs cbas or cbsa sequence"
                     self.skip1 = nn.AvgPool2d(stride)
                     self.skip2 = Duplicate(nn.Sequential(), duplicate_num)
-                    self.point_conv = nn.ModuleList([Duplicate(conv1x1(inp, inp, stride=1, args=args, force_fp=keep_point_conv), duplicate_num) for i in range(self.base)])
+                    self.point_conv = nn.ModuleList([ \
+                        Duplicate(qconv1x1(inp, inp, stride=1, args=args, force_fp=keep_point_conv), duplicate_num) for i in range(self.base)])
                     self.bn2 = nn.ModuleList([Duplicate(norm(inp, args), duplicate_num) for j in range(self.base)])
                 else:
                     raise RuntimeError("should not reach here")
@@ -325,36 +349,36 @@ class MobileNetV1(nn.Module):
         self.inplanes = int(32 * self.width_alpha)
 
         if 'cifar10' in args.keyword or 'cifar100' in args.keyword:
-            first_stride = 1
+            fstride = 1
             downsample_size = 16
         else:
-            first_stride = 2
+            fstride = 2
             downsample_size = 32
 
         if 'preBN' in args.keyword:
-            self.root = nn.Conv2d(3, self.inplanes, 3, first_stride, 1, bias=False)
+            self.root = nn.Conv2d(3, self.inplanes, 3, fstride, 1, bias=False)
             #self.pooling = nn.AvgPool2d(args.input_size // downsample_size)
             self.pooling = nn.Sequential(nn.BatchNorm2d(1024), actv(args), nn.AdaptiveAvgPool2d((1,1)))
         else:
-            self.root = conv_bn(3, self.inplanes, first_stride, args=args)
+            self.root = conv_bn(3, self.inplanes, fstride, args=args)
             #self.pooling = nn.AvgPool2d(args.input_size // downsample_size)
             self.pooling = nn.AdaptiveAvgPool2d((1,1))
 
         bottle = conv_dw
         self.model = nn.Sequential(
-            bottle(int(self.width_alpha *  32), int(self.width_alpha *  64), 1, args),
-            bottle(int(self.width_alpha *  64), int(self.width_alpha * 128), 2, args),
-            bottle(int(self.width_alpha * 128), int(self.width_alpha * 128), 1, args),
-            bottle(int(self.width_alpha * 128), int(self.width_alpha * 256), 2, args),
-            bottle(int(self.width_alpha * 256), int(self.width_alpha * 256), 1, args),
-            bottle(int(self.width_alpha * 256), int(self.width_alpha * 512), 2, args),
-            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, args),
-            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, args),
-            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, args),
-            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, args),
-            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, args),
-            bottle(int(self.width_alpha * 512), int(self.width_alpha *1024), 2, args),
-            bottle(int(self.width_alpha *1024), int(self.width_alpha *1024), 1, args),
+            bottle(int(self.width_alpha *  32), int(self.width_alpha *  64), 1, fstride * 1, args=args),
+            bottle(int(self.width_alpha *  64), int(self.width_alpha * 128), 2, fstride * 1, args=args),
+            bottle(int(self.width_alpha * 128), int(self.width_alpha * 128), 1, fstride * 2, args=args),
+            bottle(int(self.width_alpha * 128), int(self.width_alpha * 256), 2, fstride * 2, args=args),
+            bottle(int(self.width_alpha * 256), int(self.width_alpha * 256), 1, fstride * 4, args=args),
+            bottle(int(self.width_alpha * 256), int(self.width_alpha * 512), 2, fstride * 4, args=args),
+            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, fstride * 8, args=args),
+            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, fstride * 8, args=args),
+            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, fstride * 8, args=args),
+            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, fstride * 8, args=args),
+            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, fstride * 8, args=args),
+            bottle(int(self.width_alpha * 512), int(self.width_alpha *1024), 2, fstride * 8, args=args),
+            bottle(int(self.width_alpha *1024), int(self.width_alpha *1024), 1, fstride *16, args=args),
         )
 
         self.classifier = nn.Sequential (

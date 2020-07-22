@@ -18,9 +18,10 @@ __EPS__ = 0 #1e-5
 class quantization(nn.Module):
     def __init__(self, args=None, tag='fm', shape=[], feature_stride=None, logger=None):
         super(quantization, self).__init__()
+        self.args = args
+        self.logger = logger
         self.index = -1
         self.tag = tag
-        self.logger = logger
         self.method = 'none'
         self.choice = 'none'
         if logger is None:
@@ -28,11 +29,6 @@ class quantization(nn.Module):
                 self.logger = args.logger
             else:
                 self.logger = logging.getLogger(__name__)
-
-        self.args = args
-        if args is None:
-            self.enable = False
-            return
 
         self.shape = shape
         self.feature_stride = feature_stride
@@ -82,11 +78,11 @@ class quantization(nn.Module):
         for i in range(len(self.shape)-1):
             self.fan *= self.shape[i+1]
 
-        if 'proxquant' in self.args.keyword:
-            self.prox = 0
-
         if not self.enable:
             return
+
+        if 'proxquant' in getattr(self.args, 'keyword', []):
+            self.prox = 0
 
         self.logger.info("half_range({}), bit({}), num_levels({}), quant_group({}) boundary({}) scale({}) ratio({}) fan({}) tag({})".format(
             self.half_range, self.bit, self.num_levels, self.quant_group, self.boundary, self.scale, self.ratio, self.fan, self.tag))
@@ -101,8 +97,8 @@ class quantization(nn.Module):
         return self.__str__()
 
     def __str__(self):
-        if self.args is None:
-            return "quantization-{}-{}".format(self.tag, self.index)
+        if self.args is None or self.enable == False:
+            return "quantization-{}-({})".format(self.tag, self.index)
         else:
             return "quantization-{}-({})-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})".format(
                     self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group)
