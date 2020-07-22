@@ -576,22 +576,24 @@ class custom_eltwise(nn.Module):
         super(custom_eltwise, self).__init__()
         self.args = args
         self.op = operator
-        # input x + input y = output z
-        # x, y z are controlled by `ot`
         self.enable = False
+        self.quant_x = None
+        self.quant_y = None
         if hasattr(args, 'keyword') and hasattr(args, 'ot_enable') and args.ot_enable:
             self.enable = True
-            self.quant_x = quantization(args, 'ot', [1, channels, 1, 1])
-            self.quant_y = quantization(args, 'ot', [1, channels, 1, 1])
-            self.quant_z = quantization(args, 'ot', [1, channels, 1, 1])
+            if not args.ot_independent_parameter:
+                self.quant = quantization(args, 'ot', [1, channels, 1, 1])
+                self.quant_x = self.quant
+                self.quant_y = self.quant
+            else:
+                raise RuntimeError("not fully implemented yet")
 
     def forward(self, x, y):
-        if self.enable:
-            if self.op == 'sum':
+        z = None
+        if self.op == 'sum':
+            if self.enable:
                 z = self.quant_x(x) + self.quant_y(y)
-                raise RuntimeError("not fully implmented yet")
-        else:
-            if self.op == 'sum':
+            else:
                 z = x + y
         return z
 

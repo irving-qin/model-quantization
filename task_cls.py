@@ -96,6 +96,7 @@ def get_parser(parser=None):
     parser.add_argument('--ot_quant_group', default=None, type=int)
     parser.add_argument('--ot_adaptive', default='none', type=str, choices=['none', 'var', 'mean', 'mean-var', 'var-mean'])
     parser.add_argument('--ot_grad_type', default='none', type=str, choices=['none', 'STE'])
+    parser.add_argument('--ot_independent_parameter', action='store_true', default=False, help="independent or shared parameters")
 
     # re-init the model to pre-calculate some initial value
     parser.add_argument('--re_init', action='store_true', default=False)
