@@ -4,7 +4,7 @@ import logging
 import math
 
 from .quant import conv3x3, conv1x1
-from .layers import norm, actv, Duplicate
+from .layers import norm, actv, duplicate, concat
 from .layers import seq_c_b_a_s, seq_c_b_s_a, seq_b_a_c_s
 from .prone import qprone
 
@@ -201,11 +201,11 @@ class conv_dw(nn.Module):
             self.scale1 = [1]
             self.scale2 = [1]
         else:
-            self.scale1 = nn.ParameterList([nn.Parameter(torch.ones(1) / self.base, requires_grad=True) for j in range(self.base)])
-            self.scale2 = nn.ParameterList([nn.Parameter(torch.ones(1) / self.base, requires_grad=True) for j in range(self.base)])
+            self.scale1 = nn.ParameterList([nn.Parameter(torch.ones(1) / self.base, requires_grad=True)])
+            self.scale2 = nn.ParameterList([nn.Parameter(torch.ones(1) / self.base, requires_grad=True)])
 
         for i in range(2):
-            setattr(self, 'relu%d' % (i+1), nn.ModuleList([actv(args) for j in range(self.base)]))
+            setattr(self, 'relu%d' % (i+1), nn.ModuleList([actv(args)]))
 
         if 'cbas' in args.keyword: # default ?
             self.seq = seq_c_b_a_s
@@ -220,11 +220,11 @@ class conv_dw(nn.Module):
         if 'normal3x3' in args.keyword:
             groups = 1
 
-        self.bn1 = nn.ModuleList([norm(inp, args) for j in range(self.base)])
+        self.bn1 = nn.ModuleList([norm(inp, args)])
         if 'cbas' in args.keyword or 'cbsa' in args.keyword:
-            self.bn2 = nn.ModuleList([norm(outp, args) for j in range(self.base)])
+            self.bn2 = nn.ModuleList([norm(outp, args)])
         elif 'bacs' in args.keyword:
-            self.bn2 = nn.ModuleList([norm(inp, args) for j in range(self.base)])
+            self.bn2 = nn.ModuleList([norm(inp, args)])
 
         qconv3x3 = conv3x3
         qconv1x1 = conv1x1
@@ -241,7 +241,7 @@ class conv_dw(nn.Module):
 
             if 'bn_before_restore' in args.keyword:
                 if qconv3x3 == qprone:
-                    self.bn1 = nn.ModuleList([nn.Sequential() for j in range(args.base)])
+                    self.bn1 = nn.ModuleList([nn.Sequential()])
                    
             if stride != 1 and (args.input_size // feature_stride) % (2*stride) != 0:
                 extra_padding = ((2*stride) - ((args.input_size // feature_stride) % (2*stride))) // 2
@@ -252,8 +252,8 @@ class conv_dw(nn.Module):
         keep_depth_conv = 'real_dp' in args.keyword
         keep_point_conv = 'real_pt' in args.keyword
 
-        self.depth_conv = nn.ModuleList([qconv3x3(inp, inp, stride=stride, groups=groups, padding=extra_padding+1, args=args, force_fp=keep_depth_conv) for i in range(self.base)])
-        self.point_conv = nn.ModuleList([qconv1x1(inp, outp, stride=1, args=args, force_fp=keep_point_conv) for i in range(self.base)])
+        self.depth_conv = nn.ModuleList([qconv3x3(inp, inp, stride=stride, groups=groups, padding=extra_padding+1, args=args, force_fp=keep_depth_conv)])
+        self.point_conv = nn.ModuleList([qconv1x1(inp, outp, stride=1, args=args, force_fp=keep_point_conv)])
 
         # skip connect structure on
         self.is_bireal = False
@@ -293,19 +293,22 @@ class conv_dw(nn.Module):
             self.skip = nn.Sequential(*downsample)
 
         if self.is_bireal:
-            if stride != 1 and inp != outp:
-                duplicate_num = outp // inp
+            if stride != 1:
                 if 'react' in args.keyword:
                     assert 'cbas' in args.keyword or 'cbsa' in args.keyword, "the ReAct employs cbas or cbsa sequence"
                     self.skip1 = nn.AvgPool2d(stride)
-                    self.skip2 = Duplicate(nn.Sequential(), duplicate_num)
-                    self.point_conv = nn.ModuleList([ \
-                        Duplicate(qconv1x1(inp, inp, stride=1, args=args, force_fp=keep_point_conv), duplicate_num) for i in range(self.base)])
-                    self.bn2 = nn.ModuleList([Duplicate(norm(inp, args), duplicate_num) for j in range(self.base)])
                 else:
                     raise RuntimeError("should not reach here")
             else:
                 self.skip1 = nn.Sequential()
+
+            if inp != outp:
+                number = outp // inp
+                if 'react' in args.keyword:
+                    self.skip2 = concat(nn.ModuleList([nn.Sequential() for i in range(number)]))
+                    override = concat(nn.ModuleList([qconv1x1(inp, inp, stride=1, args=args, force_fp=keep_point_conv) for i in range(number)]))
+                    self.point_conv = nn.ModuleList([override])
+            else:
                 self.skip2 = nn.Sequential()
         # skip connect structure off
 
