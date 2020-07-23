@@ -591,6 +591,7 @@ def validate(loader, model, criterion, args):
     model.eval()
 
     with torch.no_grad():
+        end = time.time()
         for step, data in enumerate(loader):
             if isinstance(data, list) and isinstance(data[0], dict):
                 input = data[0]['data']
@@ -619,6 +620,7 @@ def validate(loader, model, criterion, args):
             input = None
             target = None
             data = None
+        logging.info("evaluation time: %.3f s" % (batch_time.update(time.time() - end)))
 
     if 'dali' in args.dataset:
         loader.reset()
