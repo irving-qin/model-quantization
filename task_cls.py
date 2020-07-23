@@ -52,6 +52,7 @@ def get_parser(parser=None):
     parser.add_argument('--se_reduction', default=16, type=int, help='ratio in Squeeze-Excition Module')
     parser.add_argument('--stem_kernel', default=1, type=int)
     parser.add_argument('--order', default='none', type=str)
+    parser.add_argument('--policy', default='none', type=str)
 
     # config for activation quantization
     parser.add_argument('--fm_bit', default=None, type=float)

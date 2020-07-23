@@ -254,6 +254,20 @@ class quantization(nn.Module):
             self.index = index
             self.logger.info('update %s_index %r' % (self.tag, self.index))
 
+        if 'by_index' in parameters:
+            if self.index in parameters['by_index'] or parameters['by_index'] == 'all':
+                if 'by_tag' in parameters:
+                    if self.tag in parameters['by_tag']:
+                        for k, v in list(parameters.items()):
+                            if hasattr(self, "{}_{}".format(self.tag, k)):
+                                setattr(self, "{}_{}".format(self.tag, k), v)
+                                self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, v, self.index))
+                else:
+                    for k, v in list(parameters.items()):
+                        if hasattr(self, "{}_{}".format(self.tag, k)):
+                            setattr(self, "{}_{}".format(self.tag, k), v)
+                            self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, v, self.index))
+
         if not self.enable:
             return
 
