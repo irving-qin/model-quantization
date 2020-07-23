@@ -620,7 +620,7 @@ def validate(loader, model, criterion, args):
             input = None
             target = None
             data = None
-        logging.info("evaluation time: %.3f s" % (batch_time.update(time.time() - end)))
+        logging.info("evaluation time: %.3f s" % (time.time() - end))
 
     if 'dali' in args.dataset:
         loader.reset()
