@@ -126,6 +126,9 @@ def actv(args=None):
     if 'SReLU' in keyword:
         return ShiftReLU(args)
 
+    if 'ReLU6' in keyword:
+        return nn.ReLU6(inplace=True)
+
     return nn.ReLU(inplace=True)
 
 # TResNet: High Performance GPU-Dedicated Architecture (https://arxiv.org/pdf/2003.13630v1.pdf)

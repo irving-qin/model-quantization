@@ -22,7 +22,7 @@ def conv_bn(inp, oup, stride, args=None):
     )
 
 class InvertedResidual(nn.Module):
-    def __init__(self, inp, oup, stride, expand_ratio, args):
+    def __init__(self, inp, oup, stride, expand_ratio, feature_stride=1, args=None):
         super(InvertedResidual, self).__init__()
         self.args = args
         self.stride = stride
@@ -40,23 +40,45 @@ class InvertedResidual(nn.Module):
         else:
             self.seq = None
 
-        setattr(self, 'relu1', nn.ReLU(inplace=True))
+        setattr(self, 'relu1', actv(args))
         if 'cbas' in args.keyword:
             if expand_ratio == 1:
                 setattr(self, 'relu2', nn.Sequential())
             else:
-                setattr(self, 'relu2', nn.ReLU(inplace=True))
+                setattr(self, 'relu2', actv(args))
             setattr(self, 'relu3', nn.Sequential())
         else:
-            setattr(self, 'relu2', nn.ReLU(inplace=True))
+            setattr(self, 'relu2', actv(args))
             if expand_ratio == 1:
                 setattr(self, 'relu3', nn.Sequential())
             else:
-                setattr(self, 'relu3', nn.ReLU(inplace=True))
+                setattr(self, 'relu3', actv(args))
+
+        qconv3x3 = conv3x3
+        qconv1x1 = conv1x1
+        extra_padding = 0
+        # Prone network on
+        if 'prone' in args.keyword:
+            qconv3x3 = qprone
+
+            if ('no_prone_downsample' in args.keyword and stride != 1):
+                qconv3x3 = conv3x3
+
+            if 'preBN' in args.keyword:
+                raise NotImplementedError("preBN not supported for the Prone yet")
+
+            if 'bn_before_restore' in args.keyword:
+                if qconv3x3 == qprone:
+                    raise NotImplementedError("not supported for the Prone yet")
+                   
+            if stride != 1 and (args.input_size // feature_stride) % (2*stride) != 0:
+                extra_padding = ((2*stride) - ((args.input_size // feature_stride) % (2*stride))) // 2
+                logging.warning("extra pad of {} for Prone is added".format(extra_padding))
+        # Prone network off
 
         if expand_ratio == 1:
-            self.conv1 = conv3x3(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim, args=args)
-            self.conv2 = conv1x1(hidden_dim, oup, stride=1, args=args)
+            self.conv1 = qconv3x3(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim, args=args)
+            self.conv2 = qconv1x1(hidden_dim, oup, stride=1, args=args)
             self.conv3 = nn.Sequential()
 
             self.bn1 = norm(hidden_dim, args)
@@ -66,9 +88,9 @@ class InvertedResidual(nn.Module):
             elif 'bacs' in args.keyword:
                 self.bn2 = norm(hidden_dim, args)
         else:
-            self.conv1 = conv1x1(inp, hidden_dim, stride=1, args=args)
-            self.conv2 = conv3x3(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim, args=args)
-            self.conv3 = conv1x1(hidden_dim, oup, stride=1, args=args)
+            self.conv1 = qconv1x1(inp, hidden_dim, stride=1, args=args)
+            self.conv2 = qconv3x3(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim, args=args)
+            self.conv3 = qconv1x1(hidden_dim, oup, stride=1, args=args)
 
             self.bn2 = norm(hidden_dim, args)
             if 'cbas' in args.keyword:
@@ -126,33 +148,31 @@ class MobileNetV2(nn.Module):
             interverted_residual_setting[1][3] = 1
             # or
             #interverted_residual_setting[5][3] = 1
-            first_stride = 1
+            fstride = 1
         else:
-            first_stride = 2
-
-        if 'relu6' in args.keyword:
-            nn.ReLU = nn.ReLU6
+            fstride = 2
 
         if 'preBN' in args.keyword:
-            self.features = [nn.Conv2d(3, input_channel, 3, first_stride, 1, bias=False)]
+            self.features = [nn.Conv2d(3, input_channel, 3, fstride, 1, bias=False)]
         else:
-            self.features = [conv_bn(3, input_channel, first_stride)]
+            self.features = [conv_bn(3, input_channel, fstride)]
 
         # building inverted residual blocks
         for t, c, n, s in interverted_residual_setting:
             output_channel = int(c * args.width_alpha)
             for i in range(n):
                 if i == 0:
-                    self.features.append(block(input_channel, output_channel, s, t, args))
+                    self.features.append(block(input_channel, output_channel, s, t, feature_stride=fstride, args=args))
+                    fstride = fstride * s
                 else:
-                    self.features.append(block(input_channel, output_channel, 1, t, args))
+                    self.features.append(block(input_channel, output_channel, 1, t, feature_stride=fstride, args=args))
                 input_channel = output_channel
 
         # building last several layers
         self.features.append(nn.Sequential(
                 conv1x1(input_channel, self.last_channel, stride=1, args=args),
-                nn.BatchNorm2d(self.last_channel),
-                nn.ReLU(inplace=True)
+                norm(self.last_channel, args=args),
+                actv(args)
                 ))
 
         # make it nn.Sequential
