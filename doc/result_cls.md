@@ -36,6 +36,7 @@ imagenet | LSQ | Torch-R18 | t/t | - | 65.1 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sg
 imagenet | non-uniform  | Torch-R18 | t/t | - | 65.0 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,clrd,sgd_0,fp32,ep90
 imagenet | non-uniform | Torch-R18 | t/t | - | 64.8 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
 imagenet | non-uniform-D | Torch-R18 | t/t | - | 65.0 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,clr_wd2.5e-5,sgd_0,fp32,ep90
+imagenet | LSQ | Torch-R34 | t/t | - | 69.2 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
 imagenet | LSQ | Torch-R50 | t/t | - | 72.6 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
 cifar100 |  - | ResNet-20 | 32/32 | - | 67.41 | cbsa, ldn, baseline
 cifar100 |  - | ResNet-20 | 32/32 | - | 66.92 | cbsa, ldn, order c
