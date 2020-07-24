@@ -77,7 +77,7 @@ class InvertedResidual(nn.Module):
         # Prone network off
 
         if expand_ratio == 1:
-            self.conv1 = qconv3x3(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim, args=args)
+            self.conv1 = qconv3x3(hidden_dim, hidden_dim, stride=stride, padding=1+extra_padding, groups=hidden_dim, args=args)
             self.conv2 = qconv1x1(hidden_dim, oup, stride=1, args=args)
             self.conv3 = nn.Sequential()
 
@@ -89,7 +89,7 @@ class InvertedResidual(nn.Module):
                 self.bn2 = norm(hidden_dim, args)
         else:
             self.conv1 = qconv1x1(inp, hidden_dim, stride=1, args=args)
-            self.conv2 = qconv3x3(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim, args=args)
+            self.conv2 = qconv3x3(hidden_dim, hidden_dim, stride=stride, padding=1+extra_padding, groups=hidden_dim, args=args)
             self.conv3 = qconv1x1(hidden_dim, oup, stride=1, args=args)
 
             self.bn2 = norm(hidden_dim, args)
