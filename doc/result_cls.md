@@ -28,16 +28,16 @@ imagenet | Group-Net | ResNet-18 | 1/1 | - | 63.9 | cabs,bireal,base=5,without-s
 imagenet | Xnor-Net | ResNet-18 | 1/1 | 51.2 | 52.0 | cbsa,fm_triangle,wt_pass,No-ReLU | [File](../config/config.xnor.train-strach.dali.bin.resnet18-triangle-pass)
 imagenet | Xnor-Net | ResNet-18 | 1/1 | 51.2 | 50.5 | cbsa,fm_STE,wt_pass,No-ReLU
 imagenet | LSQ | Torch-R18 | 1/1 | - | 58.5 | ReLU,wt-var-mean,wtg=1
+imagenet | LSQ | Torch-R18 | t/t | - | 65.1 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
+imagenet | LSQ | Torch-R34 | t/t | - | 69.2 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
+imagenet | LSQ | Torch-R50 | t/t | - | 72.6 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
 imagenet | LSQ | Torch-R18 | 2/2 | - | 66.9 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
 imagenet | non-uniform | Torch-R18 | 2/2 | - | 66.8 | wd2.5e-5,sc3.0,wt_qg=1_var-mean,ns,ds,clrd,sgd_0,fp32,ep90
 imagenet | non-uniform | Torch-R18 | 2/2 | - | 65.5 | wd2e-5,sc3.0,wt_qg=1_var-mean,ns,ds,sgd_2,fp32,ep40
 dali | non-uniform | Torch-R18 | 2/2 | - | 65.8 | wd2e-5,sc3.0,wt_qg=1,ns,ds,sgd_2,fp16,ep40
-imagenet | LSQ | Torch-R18 | t/t | - | 65.1 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
 imagenet | non-uniform  | Torch-R18 | t/t | - | 65.0 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,clrd,sgd_0,fp32,ep90
 imagenet | non-uniform | Torch-R18 | t/t | - | 64.8 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
 imagenet | non-uniform-D | Torch-R18 | t/t | - | 65.0 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,clr_wd2.5e-5,sgd_0,fp32,ep90
-imagenet | LSQ | Torch-R34 | t/t | - | 69.2 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
-imagenet | LSQ | Torch-R50 | t/t | - | 72.6 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
 cifar100 |  - | ResNet-20 | 32/32 | - | 67.41 | cbsa, ldn, baseline
 cifar100 |  - | ResNet-20 | 32/32 | - | 66.92 | cbsa, ldn, order c
 cifar100 |  - | ResNet-20 | 32/32 | - | 67.73 | cbsa, ldn, order cb
