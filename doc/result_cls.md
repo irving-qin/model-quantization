@@ -36,6 +36,7 @@ imagenet | non-uniform | Torch-R18 | 2/2 | - | 66.8 | wd2.5e-5,sc3.0,wt_qg=1_var
 imagenet | non-uniform | Torch-R18 | 2/2 | - | 65.5 | wd2e-5,sc3.0,wt_qg=1_var-mean,ns,ds,sgd_2,fp32,ep40
 dali | non-uniform | Torch-R18 | 2/2 | - | 65.8 | wd2e-5,sc3.0,wt_qg=1,ns,ds,sgd_2,fp16,ep40
 imagenet | non-uniform  | Torch-R18 | t/t | - | 65.0 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,clrd,sgd_0,fp32,ep90
+imagenet | non-uniform | Torch-R18 | t/t | - | 59.23 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,clr_wd2.5e-5,sgd_0,fp32,ep90,train-strach
 imagenet | non-uniform | Torch-R18 | t/t | - | 64.8 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
 imagenet | non-uniform-D | Torch-R18 | t/t | - | 65.0 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,clr_wd2.5e-5,sgd_0,fp32,ep90
 imagenet | non-uniform-D | Torch-R18 | t/t | - | 64.8 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,clrd,sgd_0,fp32,ep90
