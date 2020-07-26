@@ -7,7 +7,7 @@ def read_policy(filename, section='init'):
     valid = False
     with open(filename) as f:
         while(True):
-            line = f.readline()a
+            line = f.readline()
             if len(line) == 0:
                 break
 
@@ -53,7 +53,7 @@ def read_policy(filename, section='init'):
             if 'by_' not in items[0]:
                 valid = True
 
-        if attr not is None and valid:
+        if attr is not None and valid:
             policies.append(attr)
 
     return policies

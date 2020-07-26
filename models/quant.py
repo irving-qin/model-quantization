@@ -98,9 +98,9 @@ class quantization(nn.Module):
 
     def __str__(self):
         if self.args is None or self.enable == False:
-            return "quantization-{}-({})".format(self.tag, self.index)
+            return "quantization-{}-index{}".format(self.tag, self.index)
         else:
-            return "quantization-{}-({})-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})".format(
+            return "quantization-{}-index{}-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})".format(
                     self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group)
 
     def init(self):
@@ -255,17 +255,26 @@ class quantization(nn.Module):
             self.logger.info('update %s_index %r' % (self.tag, self.index))
 
         if 'by_index' in parameters:
-            if self.index in parameters['by_index'] or parameters['by_index'] == 'all':
+            by_index = parameters['by_index']
+            if isinstance(by_index, list) or (isinstance(by_index, str) and by_index != "all"):
+                try:
+                    if not isinstance(by_index, list):
+                        by_index = by_index.split()
+                    by_index = [int(i) for i in by_index]
+                except (ValueError, SyntaxError) as e:
+                    self.logger.warning('unexpect string in by_index: {}'.format(by_index))
+
+            if by_index == 'all' or self.index in by_index:
                 if 'by_tag' in parameters:
                     if self.tag in parameters['by_tag']:
                         for k, v in list(parameters.items()):
-                            if hasattr(self, "{}_{}".format(self.tag, k)):
-                                setattr(self, "{}_{}".format(self.tag, k), v)
+                            if hasattr(self, "{}".format(k)):
+                                setattr(self, "{}".format(k), v)
                                 self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, v, self.index))
                 else:
                     for k, v in list(parameters.items()):
-                        if hasattr(self, "{}_{}".format(self.tag, k)):
-                            setattr(self, "{}_{}".format(self.tag, k), v)
+                        if hasattr(self, "{}".format(k)):
+                            setattr(self, "{}".format(k), v)
                             self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, v, self.index))
 
         if not self.enable:
@@ -507,7 +516,8 @@ class quantization(nn.Module):
         self.codec_index.data= torch.IntTensor(init_codec_index)
 
 class custom_conv(nn.Conv2d):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=False, args=None, force_fp=False, feature_stride=1):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=False,
+            args=None, force_fp=False, feature_stride=1):
         super(custom_conv, self).__init__(in_channels, out_channels, kernel_size, stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias)
         self.args = args
         self.force_fp = force_fp
@@ -522,13 +532,15 @@ class custom_conv(nn.Conv2d):
 
     def init_after_load_pretrain(self):
         if not self.force_fp:
-            self.quant_weight.init_based_on_pretrain(self.weight.data)
             self.quant_activation.init_based_on_pretrain()
+            self.quant_weight.init_based_on_pretrain(self.weight.data)
+            self.quant_output.init_based_on_pretrain()
 
     def update_quantization_parameter(self, **parameters):
         if not self.force_fp:
             self.quant_activation.update_quantization(**parameters)
             self.quant_weight.update_quantization(**parameters)
+            self.quant_output.update_quantization(**parameters)
 
     def forward(self, inputs):
         if not self.force_fp:
