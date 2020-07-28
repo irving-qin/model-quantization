@@ -15,6 +15,6 @@ Run `bash train.sh config.dorefa.eval.imagenet.fp.resnet18` to test the PreBN Re
 
 ### For developers
 
-1. Do not include any user/name/data/path in respect to own machine in any config file and scripts. Inlcude those in `.env` file with enviroment vairables.
+1. Do not include any user/name/folder/path with respect to one's own machine in any config file and scripts. Inlcude those in `.env` file with enviroment vairables. Relative path is suggested.
 
-2. All options have one space ahead, replace with `#` to denote it. Do not add extra space to keep left alignment
+2. In the configuration `config.xx` files, all options are advised to have one only space ahead, replace with `#` to comment it if required. Do not add extra space to keep left alignment.
