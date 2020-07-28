@@ -31,7 +31,7 @@
 
    Refer instruction from EDSR-PyTorch: [how-to-train-edsr-and-mdsr](https://github.com/blueardour/EDSR-PyTorch#how-to-train-edsr-and-mdsr)
    
-   ***Link your training data to /workspace/git/EDSR-PyTorch/data***
+   ***Link your training data to /workspace/git/EDSR-PyTorch/data*** The `train.sh` script in `src` folder finds data in `../data` folder by default.
    
 
 ## Pretrained models and quantization results
