@@ -76,6 +76,8 @@
 
 ## Training script options
 
+- From 2020.07.28 Dynamic loading of the training options by policy file is supported. 
+
 - Option parsing
 
   Common options are parsed in `util/config.py`. Quantization related options are separated in the `main.py`.

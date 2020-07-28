@@ -89,7 +89,7 @@ class quantization(nn.Module):
             batch_size = getattr(args, 'batch_size', 1)
             batch_size = getattr(args, 'batch_size_per_machine', batch_size)
             self.nElements *= batch_size
-            if feature_stride is not None:
+            if feature_stride is not None and hasattr(args, 'input_size'):
                 self.nElements *= (args.input_size // feature_stride)
                 self.nElements *= (args.input_size // feature_stride)
 
@@ -299,6 +299,9 @@ class quantization(nn.Module):
 
         if not self.enable:
             return
+        else:
+            assert self.method != 'none', "quantization enable but without specific method, likely the policy is not correct"
+
 
         if self.method == 'dorefa':
             if 'progressive' in parameters:
