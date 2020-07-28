@@ -157,6 +157,12 @@ class quantization(nn.Module):
             if self.boundary is None:
                 self.boundary = 1.0
                 self.logger.info('update %s_boundary %r' % (self.tag, self.boundary))
+            self.grad_factor = {
+                    'none': 1,
+                    'fan-scale': np.sqrt(self.fan) * self.scale,
+                    'scale-fan': self.scale / np.sqrt(self.fan),
+                    }[self.grad_scale]
+            self.logger.info('update %s_grad_scale %f' % (self.tag, self.grad_scale))
             if self.tag == 'fm':
                 if 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
@@ -395,6 +401,7 @@ class quantization(nn.Module):
         if self.method == 'dorefa':
             if self.tag in ['fm', 'ot']:
                 if 'lsq' in self.args.keyword or '{}_lsq'.format(self.tag) in self.args.keyword:
+                    self.clip_val = dorefa.GradientScale(self.clip_val, self.grad_factor)
                     if self.half_range:
                         y = x / self.clip_val
                         y = torch.clamp(y, min=0, max=1)
@@ -450,6 +457,7 @@ class quantization(nn.Module):
                     std, mean = torch.std_mean(x.data.reshape(self.quant_group, -1, 1, 1, 1), 1)
                     x = (x - mean) / (std + __EPS__)
                 if 'lsq' in self.args.keyword or 'wt_lsq' in self.args.keyword:
+                    self.clip_val = dorefa.GradientScale(self.clip_val, self.grad_factor)
                     y = x / self.clip_val
                     y = torch.clamp(y, min=-1, max=1)
                     y = (y + 1.0) / 2.0

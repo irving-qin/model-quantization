@@ -23,6 +23,10 @@ class LSQ(torch.autograd.Function):
     def backward(ctx, grad_output):
         return grad_output, None
 
+def GradientScale(x, scale):
+    yGrad = x * scale
+    return (x - yGrad).detach() + yGrad
+
 ##############################################################
 ## Dorefa-net (https://arxiv.org/pdf/1606.06160.pdf)
 class qfn(torch.autograd.Function):
