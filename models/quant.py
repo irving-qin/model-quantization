@@ -18,9 +18,10 @@ __EPS__ = 0 #1e-5
 class quantization(nn.Module):
     def __init__(self, args=None, tag='fm', shape=[], feature_stride=None, logger=None):
         super(quantization, self).__init__()
+        self.args = args
+        self.logger = logger
         self.index = -1
         self.tag = tag
-        self.logger = logger
         self.method = 'none'
         self.choice = 'none'
         if logger is None:
@@ -28,11 +29,6 @@ class quantization(nn.Module):
                 self.logger = args.logger
             else:
                 self.logger = logging.getLogger(__name__)
-
-        self.args = args
-        if args is None:
-            self.enable = False
-            return
 
         self.shape = shape
         self.feature_stride = feature_stride
@@ -82,11 +78,11 @@ class quantization(nn.Module):
         for i in range(len(self.shape)-1):
             self.fan *= self.shape[i+1]
 
-        if 'proxquant' in self.args.keyword:
-            self.prox = 0
-
         if not self.enable:
             return
+
+        if 'proxquant' in getattr(self.args, 'keyword', []):
+            self.prox = 0
 
         self.logger.info("half_range({}), bit({}), num_levels({}), quant_group({}) boundary({}) scale({}) ratio({}) fan({}) tag({})".format(
             self.half_range, self.bit, self.num_levels, self.quant_group, self.boundary, self.scale, self.ratio, self.fan, self.tag))
@@ -101,10 +97,10 @@ class quantization(nn.Module):
         return self.__str__()
 
     def __str__(self):
-        if self.args is None:
-            return "quantization-{}-{}".format(self.tag, self.index)
+        if self.args is None or self.enable == False:
+            return "quantization-{}-index{}".format(self.tag, self.index)
         else:
-            return "quantization-{}-({})-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})".format(
+            return "quantization-{}-index{}-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})".format(
                     self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group)
 
     def init(self):
@@ -157,6 +153,7 @@ class quantization(nn.Module):
 
         if 'dorefa' in self.args.keyword or 'pact' in self.args.keyword:
             self.method = 'dorefa'
+            self.gamma = 1
             if self.boundary is None:
                 self.boundary = 1.0
                 self.logger.info('update %s_boundary %r' % (self.tag, self.boundary))
@@ -175,11 +172,10 @@ class quantization(nn.Module):
                         setattr(self, "alpha%d" % i, nn.Parameter(torch.ones(1)))
                         getattr(self, "alpha%d" % i).data.fill_(self.scale / self.boundary)
                     self.choice = 'non-uniform'
-
-                    if 'gamma' in self.args.keyword:
+                    if 'closed_form' in self.args.keyword or 'fm_closed_form' in self.args.keyword:
                         self.basis = nn.Parameter(torch.ones (1), requires_grad=False)
                         self.auxil = nn.Parameter(torch.zeros(1), requires_grad=False)
-                        self.choice = self.choice + '-with-gamma'
+                        self.choice = self.choice + '-with-closed_form'
                 elif 'pact' in self.args.keyword:
                     self.quant = dorefa.qfn
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
@@ -212,15 +208,23 @@ class quantization(nn.Module):
                     self.quant = dorefa.qfn
                     self.clip_val = self.boundary
                     self.choice = 'dorefa-net'
+                if 'gamma' in self.args.keyword or 'wt_gamma' in self.args.keyword:
+                    self.gamma = nn.Parameter(torch.ones(self.quant_group, 1, 1, 1))
+                    self.choice = self.choice + '-with-gamma'
             elif self.tag == 'ot':
                 if 'lsq' in self.args.keyword or 'ot_lsq' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
                     self.quant = dorefa.LSQ
                     self.choice = 'lsq'
+                elif 'non-uniform' in self.args.keyword or 'pact' in self.args.keyword:
+                    raise RuntimeError("error keyword for the method, specific accurate tag please")
                 else: # Dorefa-Net
                     self.quant = dorefa.qfn
                     self.clip_val = self.boundary
                     self.choice = 'dorefa-net'
+                if 'gamma' in self.args.keyword or 'ot_gamma' in self.args.keyword:
+                    self.gamma = nn.Parameter(torch.ones(1, self.quant_group, 1, 1))
+                    self.choice = self.choice + '-with-gamma'
             else:
                 raise RuntimeError("error tag for the method")
 
@@ -249,6 +253,29 @@ class quantization(nn.Module):
         if index != self.index:
             self.index = index
             self.logger.info('update %s_index %r' % (self.tag, self.index))
+
+        if 'by_index' in parameters:
+            by_index = parameters['by_index']
+            if isinstance(by_index, list) or (isinstance(by_index, str) and by_index != "all"):
+                try:
+                    if not isinstance(by_index, list):
+                        by_index = by_index.split()
+                    by_index = [int(i) for i in by_index]
+                except (ValueError, SyntaxError) as e:
+                    self.logger.warning('unexpect string in by_index: {}'.format(by_index))
+
+            if by_index == 'all' or self.index in by_index:
+                if 'by_tag' in parameters:
+                    if self.tag in parameters['by_tag']:
+                        for k, v in list(parameters.items()):
+                            if hasattr(self, "{}".format(k)):
+                                setattr(self, "{}".format(k), v)
+                                self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, v, self.index))
+                else:
+                    for k, v in list(parameters.items()):
+                        if hasattr(self, "{}".format(k)):
+                            setattr(self, "{}".format(k), v)
+                            self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, v, self.index))
 
         if not self.enable:
             return
@@ -380,7 +407,7 @@ class quantization(nn.Module):
                         y = self.quant.apply(y, self.num_levels - 1)
                         y = y * 2.0 - 1.0
                         y = y * self.clip_val
-                elif 'non-uniform' in self.args.keyword or 'fm_non-uniform' in self.args.keyword:
+                elif 'non-uniform' in self.args.keyword or '{}_non-uniform'.format(self.tag) in self.args.keyword:
                     if self.half_range:
                         y1 = x * self.alpha0
                         y1 = torch.clamp(y1, min=0, max=1)
@@ -404,7 +431,7 @@ class quantization(nn.Module):
                         y2 = torch.clamp(y2, min=0, max=1)
                         y2 = self.quant.apply(y2, self.custom_ratio)
                         y = y1 + y2
-                    if 'gamma' in self.args.keyword:
+                    if 'closed_form' in self.args.keyword or '{}_closed_form'.format(self.tag) in self.args.keyword:
                         if self.training:
                             self.auxil.data = dorefa.non_uniform_scale(x.detach(), y.detach())
                             self.update_bias(self.auxil.data)
@@ -416,6 +443,8 @@ class quantization(nn.Module):
                 else: # default dorefa
                     y = torch.clamp(x, min=0, max=self.clip_val)
                     y = self.quant.apply(y, self.num_levels, self.clip_val, self.adaptive)
+                if 'gamma' in self.args.keyword or '{}_gamma'.format(self.tag) in self.args.keyword:
+                    y = y * self.gamma
             elif self.tag == 'wt':
                 if self.adaptive == 'var-mean':
                     std, mean = torch.std_mean(x.data.reshape(self.quant_group, -1, 1, 1, 1), 1)
@@ -441,6 +470,8 @@ class quantization(nn.Module):
                     y = torch.tanh(x)
                     y = y / (2 * y.abs().max()) + 0.5
                     y = 2 * self.quant.apply(y, self.num_levels, self.clip_val, self.adaptive) - 1
+                if 'gamma' in self.args.keyword or 'wt_gamma' in self.args.keyword:
+                    y = y * self.gamma
             else:
                 raise RuntimeError("Should not reach here for Dorefa-Net method")
 
@@ -485,7 +516,8 @@ class quantization(nn.Module):
         self.codec_index.data= torch.IntTensor(init_codec_index)
 
 class custom_conv(nn.Conv2d):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=False, args=None, force_fp=False, feature_stride=1):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=False,
+            args=None, force_fp=False, feature_stride=1):
         super(custom_conv, self).__init__(in_channels, out_channels, kernel_size, stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias)
         self.args = args
         self.force_fp = force_fp
@@ -500,13 +532,15 @@ class custom_conv(nn.Conv2d):
 
     def init_after_load_pretrain(self):
         if not self.force_fp:
-            self.quant_weight.init_based_on_pretrain(self.weight.data)
             self.quant_activation.init_based_on_pretrain()
+            self.quant_weight.init_based_on_pretrain(self.weight.data)
+            self.quant_output.init_based_on_pretrain()
 
     def update_quantization_parameter(self, **parameters):
         if not self.force_fp:
             self.quant_activation.update_quantization(**parameters)
             self.quant_weight.update_quantization(**parameters)
+            self.quant_output.update_quantization(**parameters)
 
     def forward(self, inputs):
         if not self.force_fp:
@@ -580,22 +614,24 @@ class custom_eltwise(nn.Module):
         super(custom_eltwise, self).__init__()
         self.args = args
         self.op = operator
-        # input x + input y = output z
-        # x, y z are controlled by `ot`
         self.enable = False
+        self.quant_x = None
+        self.quant_y = None
         if hasattr(args, 'keyword') and hasattr(args, 'ot_enable') and args.ot_enable:
             self.enable = True
-            self.quant_x = quantization(args, 'ot', [1, channels, 1, 1])
-            self.quant_y = quantization(args, 'ot', [1, channels, 1, 1])
-            self.quant_z = quantization(args, 'ot', [1, channels, 1, 1])
+            if not args.ot_independent_parameter:
+                self.quant = quantization(args, 'ot', [1, channels, 1, 1])
+                self.quant_x = self.quant
+                self.quant_y = self.quant
+            else:
+                raise RuntimeError("not fully implemented yet")
 
     def forward(self, x, y):
-        if self.enable:
-            if self.op == 'sum':
+        z = None
+        if self.op == 'sum':
+            if self.enable:
                 z = self.quant_x(x) + self.quant_y(y)
-                raise RuntimeError("not fully implmented yet")
-        else:
-            if self.op == 'sum':
+            else:
                 z = x + y
         return z
 

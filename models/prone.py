@@ -12,13 +12,13 @@ from torch.nn.modules.utils import _quadruple
 
 # Prone-net: Point-wise and Reshape only Neural Network
 class Prone(nn.Module):
-    def __init__(self, out_channel, in_channel=3, stride=4, group=1, kernel_size=3, force_fp=True, args=None, feature_stride=1, keepdim=True):
+    def __init__(self, out_channel, in_channel=3, stride=4, groups=1, kernel_size=3, force_fp=True, args=None, feature_stride=1, keepdim=True):
         super(Prone, self).__init__()
         self.stride = stride * 2
         self.in_channel = in_channel * self.stride * self.stride
         self.out_channel = out_channel * 4
         self.keepdim = keepdim
-        self.conv = conv1x1(self.in_channel, self.out_channel, args=args, force_fp=force_fp)
+        self.conv = conv1x1(self.in_channel, self.out_channel, groups=groups, args=args, force_fp=force_fp)
 
         self.bn_before_restore = False
         if hasattr(args, 'keyword'):
@@ -52,5 +52,6 @@ class Prone(nn.Module):
 def qprone(in_channel, out_channel, stride=1, groups=1, padding=1, args=None, force_fp=False, feature_stride=1, kernel_size=3, keepdim=True):
     assert kernel_size in [3], "Only kernel size = 3 support"
     assert stride in [1, 2], "Stride must be 1 or 2"
-    assert groups in [1], "groups must be 1"
+    #assert groups in [1], "groups must be 1"
     return Prone(out_channel, in_channel, stride, groups, kernel_size, force_fp, args, feature_stride, keepdim)
+

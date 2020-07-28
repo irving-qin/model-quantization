@@ -4,7 +4,7 @@ import logging
 import numpy as np
 
 from .quant import conv3x3, conv1x1, conv0x0
-from .layers import norm, actv, TResNetStem
+from .layers import norm, actv, TResNetStem, concat
 from .layers import seq_c_b_a_s, seq_c_b_s_a, seq_c_a_b_s, seq_b_c_a_s, seq_b_a_c_s
 from .prone import qprone
 
@@ -143,17 +143,17 @@ class BasicBlock(nn.Module):
             if 'bacs' in args.keyword:
                 downsample.append(norm(inplanes, args, feature_stride=feature_stride))
                 downsample.append(actv(args))
-                downsample.append(qconv1x1(inplanes, planes, stride=1, args=args, force_fp=real_skip, feature_stride=feature_stride*stride))
+                downsample.append(qconv1x1(inplanes, planes, stride=1, args=args, force_fp=real_skip))
                 if 'fix' in args.keyword:
                     downsample.append(norm(planes, args, feature_stride=feature_stride*stride))
             elif 'bcas' in args.keyword:
                 downsample.append(norm(inplanes, args, feature_stride=feature_stride))
-                downsample.append(qconv1x1(inplanes, planes, stride=1, args=args, force_fp=real_skip, feature_stride=feature_stride*stride))
+                downsample.append(qconv1x1(inplanes, planes, stride=1, args=args, force_fp=real_skip))
                 downsample.append(actv(args))
                 if 'fix' in args.keyword: # remove the ReLU in skip connection
-                    downsample.append(norm(planes, args, feature_stride=feature_stride*stride))
+                    downsample.append(norm(planes, args))
             else:
-                downsample.append(qconv1x1(inplanes, planes, args=args, force_fp=real_skip, feature_stride=feature_stride*stride))
+                downsample.append(qconv1x1(inplanes, planes, args=args, force_fp=real_skip))
                 downsample.append(norm(planes, args, feature_stride=feature_stride*stride))
                 if 'fix' not in args.keyword:
                     downsample.append(actv(args))
@@ -162,11 +162,19 @@ class BasicBlock(nn.Module):
                 if isinstance(n, nn.AvgPool2d):
                     downsample[i] = nn.Sequential()
                 if isinstance(n, nn.Conv2d):
-                    downsample[i] = qconv1x1(inplanes, planes, stride=stride, padding=extra_padding, args=args, force_fp=real_skip, feature_stride=feature_stride)
+                    downsample[i] = qconv1x1(inplanes, planes, stride=stride, padding=extra_padding, args=args, force_fp=real_skip)
+        if 'DCHR' in args.keyword: # double channel and halve resolution
+            if inplanes != planes:
+                downsample = []
+                number = planes // inplanes
+                if stride != 1:
+                    downsample.append(concat(nn.ModuleList([nn.AvgPool2d(stride) for i in range(number)])))
+                else:
+                    downsample.append(concat(nn.ModuleList([nn.Sequential() for i in range(number)])))
         self.skip = nn.Sequential(*downsample)
 
-        self.conv1 = nn.ModuleList([fconv3x3(inplanes, planes, stride=stride, groups=1, padding=extra_padding+1, args=args, feature_stride=feature_stride, keepdim=keepdim) for j in range(args.base)])
-        self.conv2 = nn.ModuleList([sconv3x3(planes, planes, stride=1, groups=1, args=args, feature_stride=feature_stride*stride) for j in range(args.base)])
+        self.conv1 = nn.ModuleList([fconv3x3(inplanes, planes, stride=stride, groups=1, padding=extra_padding+1, args=args) for j in range(args.base)])
+        self.conv2 = nn.ModuleList([sconv3x3(planes, planes, stride=1, groups=1, args=args) for j in range(args.base)])
 
         # scales
         if args.base == 1:
@@ -316,11 +324,11 @@ class BottleNeck(nn.Module):
             if 'bacs' in args.keyword:
                 downsample.append(norm(inplanes, args))
                 downsample.append(actv(args))
-                downsample.append(qconv1x1(inplanes, planes * self.expansion, stride=1, args=args, force_fp=real_skip, feature_stride=feature_stride*stride))
+                downsample.append(qconv1x1(inplanes, planes * self.expansion, stride=1, args=args, force_fp=real_skip))
                 if 'fix' in args.keyword:
                     downsample.append(norm(planes * self.expansion, args))
             else:
-                downsample.append(qconv1x1(inplanes, planes * self.expansion, stride=1, args=args, force_fp=real_skip, feature_stride=feature_stride*stride))
+                downsample.append(qconv1x1(inplanes, planes * self.expansion, stride=1, args=args, force_fp=real_skip))
                 downsample.append(norm(planes * self.expansion, args))
                 if 'fix' not in args.keyword:
                     downsample.append(actv(args))
@@ -329,12 +337,20 @@ class BottleNeck(nn.Module):
                 if isinstance(n, nn.AvgPool2d):
                     downsample[i] = nn.Sequential()
                 if isinstance(n, nn.Conv2d):
-                    downsample[i] = qconv1x1(inplanes, planes * self.expansion, stride=stride, padding=extra_padding, args=args, force_fp=real_skip, feature_stride=feature_stride)
+                    downsample[i] = qconv1x1(inplanes, planes * self.expansion, stride=stride, padding=extra_padding, args=args, force_fp=real_skip)
+        if 'DCHR' in args.keyword: # double channel and halve resolution
+            if inplanes != planes:
+                downsample = []
+                number = planes // inplanes
+                if stride != 1:
+                    downsample.append(concat(nn.ModuleList([nn.AvgPool2d(stride) for i in range(number)])))
+                else:
+                    downsample.append(concat(nn.ModuleList([nn.Sequential() for i in range(number)])))
         self.skip = nn.Sequential(*downsample)
 
-        self.conv1 = nn.ModuleList([qconv1x1(inplanes, planes, stride=1, args=args, feature_stride=feature_stride) for j in range(args.base)])
-        self.conv2 = nn.ModuleList([qconv3x3(planes, planes, stride=stride, groups=1, padding=extra_padding+1, args=args, feature_stride=feature_stride) for j in range(args.base)])
-        self.conv3 = nn.ModuleList([qconv1x1(planes, planes * self.expansion, stride=1, args=args, feature_stride=feature_stride*stride) for j in range(args.base)])
+        self.conv1 = nn.ModuleList([qconv1x1(inplanes, planes, stride=1, args=args) for j in range(args.base)])
+        self.conv2 = nn.ModuleList([qconv3x3(planes, planes, stride=stride, groups=1, padding=extra_padding+1, args=args) for j in range(args.base)])
+        self.conv3 = nn.ModuleList([qconv1x1(planes, planes * self.expansion, stride=1, args=args) for j in range(args.base)])
 
         if args.base == 1:
             self.scales = [1]

@@ -1,7 +1,6 @@
 
 import torch
 import torch.nn as nn
-from copy import deepcopy
 
 from .quant import conv3x3, conv1x1, conv0x0
 
@@ -127,6 +126,9 @@ def actv(args=None):
     if 'SReLU' in keyword:
         return ShiftReLU(args)
 
+    if 'ReLU6' in keyword:
+        return nn.ReLU6(inplace=True)
+
     return nn.ReLU(inplace=True)
 
 # TResNet: High Performance GPU-Dedicated Architecture (https://arxiv.org/pdf/2003.13630v1.pdf)
@@ -152,18 +154,22 @@ class TResNetStem(nn.Module):
         return x
 
 class DuplicateModule(nn.Module):
-    def __init__(self, module, num):
+    def __init__(self, hyper_parameter, number):
         super(DuplicateModule, self).__init__()
-        assert num >=1, "Num should greater or equal 1"
-
-        self.model = module
-        self.duplicates = []
-        for i in range(1, num):
-            self.duplicates.append(deepcopy(self.model))
+        instance_type = hyper_parameter.get('type', 'identify')
+        if instance_type == 'identify':
+            self.duplicates = nn.ModuleList([nn.Sequential() for i in range(number)])
+        elif instance_type == 'conv':
+            module = hyper_parameter.get('module')
+            in_channel = hyper_parameter.get('in_channel')
+            out_channel = hyper_parameter.get('out_channel')
+            stride = hyper_parameter.get('stride', 1)
+            args = hyper_parameter.get('args', None)
+            force_fp = hyper_parameter.get('force_fp', True)
+            self.duplicates = nn.ModuleList([module(in_channel, out_channel, stride=stride, args=args, force_fp=force_fp) for i in range(number)])
 
     def forward(self, x):
         result = []
-        result.append(self.model(x))
         for model in self.duplicates:
             result.append(model(x))
 
@@ -172,7 +178,26 @@ class DuplicateModule(nn.Module):
         else:
             return result[0]
 
-def Duplicate(module, num=1):
-    return DuplicateModule(module, num)
+def duplicate(hyper_parameter, number):
+    return DuplicateModule(hyper_parameter, number)
+
+class ConcatModule(nn.Module):
+    def __init__(self, model_list):
+        super(ConcatModule, self).__init__()
+        assert isinstance(model_list, nn.ModuleList), "concat nn.ModuleList only"
+        self.duplicates = model_list
+
+    def forward(self, x):
+        result = []
+        for model in self.duplicates:
+            result.append(model(x))
+
+        if len(result) > 1:
+            return torch.cat(result, dim=1)
+        else:
+            return result[0]
+
+def concat(model_list):
+    return ConcatModule(model_list)
 
 

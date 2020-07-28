@@ -4,8 +4,9 @@ import logging
 import math
 
 from .quant import conv3x3, conv1x1
-from .layers import norm, actv, Duplicate
+from .layers import norm, actv, duplicate, concat
 from .layers import seq_c_b_a_s, seq_c_b_s_a, seq_b_a_c_s
+from .prone import qprone
 
 def conv_bn(inp, oup, stride, args=None):
     return nn.Sequential(
@@ -21,7 +22,7 @@ def conv_bn(inp, oup, stride, args=None):
     )
 
 class InvertedResidual(nn.Module):
-    def __init__(self, inp, oup, stride, expand_ratio, args):
+    def __init__(self, inp, oup, stride, expand_ratio, feature_stride=1, args=None):
         super(InvertedResidual, self).__init__()
         self.args = args
         self.stride = stride
@@ -39,23 +40,45 @@ class InvertedResidual(nn.Module):
         else:
             self.seq = None
 
-        setattr(self, 'relu1', nn.ReLU(inplace=True))
+        setattr(self, 'relu1', actv(args))
         if 'cbas' in args.keyword:
             if expand_ratio == 1:
                 setattr(self, 'relu2', nn.Sequential())
             else:
-                setattr(self, 'relu2', nn.ReLU(inplace=True))
+                setattr(self, 'relu2', actv(args))
             setattr(self, 'relu3', nn.Sequential())
         else:
-            setattr(self, 'relu2', nn.ReLU(inplace=True))
+            setattr(self, 'relu2', actv(args))
             if expand_ratio == 1:
                 setattr(self, 'relu3', nn.Sequential())
             else:
-                setattr(self, 'relu3', nn.ReLU(inplace=True))
+                setattr(self, 'relu3', actv(args))
+
+        qconv3x3 = conv3x3
+        qconv1x1 = conv1x1
+        extra_padding = 0
+        # Prone network on
+        if 'prone' in args.keyword:
+            qconv3x3 = qprone
+
+            if ('no_prone_downsample' in args.keyword and stride != 1):
+                qconv3x3 = conv3x3
+
+            if 'preBN' in args.keyword:
+                raise NotImplementedError("preBN not supported for the Prone yet")
+
+            if 'bn_before_restore' in args.keyword:
+                if qconv3x3 == qprone:
+                    raise NotImplementedError("not supported for the Prone yet")
+                   
+            if stride != 1 and (args.input_size // feature_stride) % (2*stride) != 0:
+                extra_padding = ((2*stride) - ((args.input_size // feature_stride) % (2*stride))) // 2
+                logging.warning("extra pad of {} for Prone is added".format(extra_padding))
+        # Prone network off
 
         if expand_ratio == 1:
-            self.conv1 = conv3x3(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim, args=args)
-            self.conv2 = conv1x1(hidden_dim, oup, stride=1, args=args)
+            self.conv1 = qconv3x3(hidden_dim, hidden_dim, stride=stride, padding=1+extra_padding, groups=hidden_dim, args=args)
+            self.conv2 = qconv1x1(hidden_dim, oup, stride=1, args=args)
             self.conv3 = nn.Sequential()
 
             self.bn1 = norm(hidden_dim, args)
@@ -65,9 +88,9 @@ class InvertedResidual(nn.Module):
             elif 'bacs' in args.keyword:
                 self.bn2 = norm(hidden_dim, args)
         else:
-            self.conv1 = conv1x1(inp, hidden_dim, stride=1, args=args)
-            self.conv2 = conv3x3(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim, args=args)
-            self.conv3 = conv1x1(hidden_dim, oup, stride=1, args=args)
+            self.conv1 = qconv1x1(inp, hidden_dim, stride=1, args=args)
+            self.conv2 = qconv3x3(hidden_dim, hidden_dim, stride=stride, padding=1+extra_padding, groups=hidden_dim, args=args)
+            self.conv3 = qconv1x1(hidden_dim, oup, stride=1, args=args)
 
             self.bn2 = norm(hidden_dim, args)
             if 'cbas' in args.keyword:
@@ -125,33 +148,31 @@ class MobileNetV2(nn.Module):
             interverted_residual_setting[1][3] = 1
             # or
             #interverted_residual_setting[5][3] = 1
-            first_stride = 1
+            fstride = 1
         else:
-            first_stride = 2
-
-        if 'relu6' in args.keyword:
-            nn.ReLU = nn.ReLU6
+            fstride = 2
 
         if 'preBN' in args.keyword:
-            self.features = [nn.Conv2d(3, input_channel, 3, first_stride, 1, bias=False)]
+            self.features = [nn.Conv2d(3, input_channel, 3, fstride, 1, bias=False)]
         else:
-            self.features = [conv_bn(3, input_channel, first_stride)]
+            self.features = [conv_bn(3, input_channel, fstride)]
 
         # building inverted residual blocks
         for t, c, n, s in interverted_residual_setting:
             output_channel = int(c * args.width_alpha)
             for i in range(n):
                 if i == 0:
-                    self.features.append(block(input_channel, output_channel, s, t, args))
+                    self.features.append(block(input_channel, output_channel, s, t, feature_stride=fstride, args=args))
+                    fstride = fstride * s
                 else:
-                    self.features.append(block(input_channel, output_channel, 1, t, args))
+                    self.features.append(block(input_channel, output_channel, 1, t, feature_stride=fstride, args=args))
                 input_channel = output_channel
 
         # building last several layers
         self.features.append(nn.Sequential(
                 conv1x1(input_channel, self.last_channel, stride=1, args=args),
-                nn.BatchNorm2d(self.last_channel),
-                nn.ReLU(inplace=True)
+                norm(self.last_channel, args=args),
+                actv(args)
                 ))
 
         # make it nn.Sequential
@@ -187,7 +208,7 @@ class MobileNetV2(nn.Module):
                 m.bias.data.zero_()
 
 class conv_dw(nn.Module):
-    def __init__(self, inp, outp, stride, args=None):
+    def __init__(self, inp, outp, stride, feature_stride=1, args=None):
         super(conv_dw, self).__init__()
         self.stride = stride
         self.outp = outp
@@ -200,11 +221,11 @@ class conv_dw(nn.Module):
             self.scale1 = [1]
             self.scale2 = [1]
         else:
-            self.scale1 = nn.ParameterList([nn.Parameter(torch.ones(1) / self.base, requires_grad=True) for j in range(self.base)])
-            self.scale2 = nn.ParameterList([nn.Parameter(torch.ones(1) / self.base, requires_grad=True) for j in range(self.base)])
+            self.scale1 = nn.ParameterList([nn.Parameter(torch.ones(1) / self.base, requires_grad=True)])
+            self.scale2 = nn.ParameterList([nn.Parameter(torch.ones(1) / self.base, requires_grad=True)])
 
         for i in range(2):
-            setattr(self, 'relu%d' % (i+1), nn.ModuleList([actv(args) for j in range(self.base)]))
+            setattr(self, 'relu%d' % (i+1), nn.ModuleList([actv(args)]))
 
         if 'cbas' in args.keyword: # default ?
             self.seq = seq_c_b_a_s
@@ -216,12 +237,48 @@ class conv_dw(nn.Module):
             self.seq = None
 
         groups = inp
+        if 'normal3x3' in args.keyword:
+            groups = 1
+
+        self.bn1 = nn.ModuleList([norm(inp, args)])
+        if 'cbas' in args.keyword or 'cbsa' in args.keyword:
+            self.bn2 = nn.ModuleList([norm(outp, args)])
+        elif 'bacs' in args.keyword:
+            self.bn2 = nn.ModuleList([norm(inp, args)])
+
+        qconv3x3 = conv3x3
+        qconv1x1 = conv1x1
+        extra_padding = 0
+        # Prone network on
+        if 'prone' in args.keyword:
+            qconv3x3 = qprone
+
+            if ('no_prone_downsample' in args.keyword and stride != 1):
+                qconv3x3 = conv3x3
+
+            if 'preBN' in args.keyword:
+                raise NotImplementedError("preBN not supported for the Prone yet")
+
+            if 'bn_before_restore' in args.keyword:
+                if qconv3x3 == qprone:
+                    self.bn1 = nn.ModuleList([nn.Sequential()])
+                   
+            if stride != 1 and (args.input_size // feature_stride) % (2*stride) != 0:
+                extra_padding = ((2*stride) - ((args.input_size // feature_stride) % (2*stride))) // 2
+                logging.warning("extra pad of {} for Prone is added".format(extra_padding))
+        # Prone network off
+
+        # whether quantize or keep full precision ?
+        keep_depth_conv = 'real_dp' in args.keyword
+        keep_point_conv = 'real_pt' in args.keyword
+
+        self.depth_conv = nn.ModuleList([qconv3x3(inp, inp, stride=stride, groups=groups, padding=extra_padding+1, args=args, force_fp=keep_depth_conv)])
+        self.point_conv = nn.ModuleList([qconv1x1(inp, outp, stride=1, args=args, force_fp=keep_point_conv)])
+
+        # skip connect structure on
         self.is_bireal = False
         self.is_block_skip = False
         if 'origin' not in args.keyword:
-            if 'normal3x3' in args.keyword:
-                groups = 1
-
             if 'bireal' in args.keyword:
                 self.is_bireal = True
 
@@ -230,20 +287,6 @@ class conv_dw(nn.Module):
 
             assert not (self.is_block_skip and self.is_bireal), "bireal and block_skip cannot be set at the same time"
 
-        # whether quantize or keep full precision ?
-        keep_depth_conv = 'real_dp' in args.keyword
-        keep_point_conv = 'real_pt' in args.keyword
-
-        self.depth_conv = nn.ModuleList([conv3x3(inp, inp, stride=stride, groups=groups, args=args, force_fp=keep_depth_conv) for i in range(self.base)])
-        self.point_conv = nn.ModuleList([conv1x1(inp, outp, stride=1, args=args, force_fp=keep_point_conv) for i in range(self.base)])
-
-        self.bn1 = nn.ModuleList([norm(inp, args) for j in range(self.base)])
-        if 'cbas' in args.keyword or 'cbsa' in args.keyword:
-            self.bn2 = nn.ModuleList([norm(outp, args) for j in range(self.base)])
-        elif 'bacs' in args.keyword:
-            self.bn2 = nn.ModuleList([norm(inp, args) for j in range(self.base)])
-
-        # skip connect structure on
         if self.is_block_skip:
             real_skip = 'real_skip' in args.keyword
             downsample = []
@@ -253,7 +296,7 @@ class conv_dw(nn.Module):
                 downsample.append(nn.Sequential())
             if inp != outp:
                 if 'cbas' in args.keyword or 'cbsa' in args.keyword:
-                    downsample.append(conv1x1(inp, outp, args=args, force_fp=real_skip))
+                    downsample.append(qconv1x1(inp, outp, args=args, force_fp=real_skip))
                     downsample.append(norm(outp, args))
                     if 'fix' not in args.keyword:
                         downsample.append(actv(args))
@@ -265,23 +308,27 @@ class conv_dw(nn.Module):
                     if isinstance(n, nn.AvgPool2d):
                         downsample[i] = nn.Sequential()
                     if isinstance(n, nn.Conv2d):
-                        downsample[i] = conv1x1(inp, outp, stride=stride, args=args, force_fp=real_skip)
+                        downsample[i] = qconv1x1(inp, outp, stride=stride, args=args, force_fp=real_skip)
 
             self.skip = nn.Sequential(*downsample)
 
         if self.is_bireal:
-            if stride != 1 and inp != outp:
-                duplicate_num = outp // inp
+            if stride != 1:
                 if 'react' in args.keyword:
                     assert 'cbas' in args.keyword or 'cbsa' in args.keyword, "the ReAct employs cbas or cbsa sequence"
                     self.skip1 = nn.AvgPool2d(stride)
-                    self.skip2 = Duplicate(nn.Sequential(), duplicate_num)
-                    self.point_conv = nn.ModuleList([Duplicate(conv1x1(inp, inp, stride=1, args=args, force_fp=keep_point_conv), duplicate_num) for i in range(self.base)])
-                    self.bn2 = nn.ModuleList([Duplicate(norm(inp, args), duplicate_num) for j in range(self.base)])
                 else:
                     raise RuntimeError("should not reach here")
             else:
                 self.skip1 = nn.Sequential()
+
+            if inp != outp:
+                number = outp // inp
+                if 'react' in args.keyword:
+                    self.skip2 = concat(nn.ModuleList([nn.Sequential() for i in range(number)]))
+                    override = concat(nn.ModuleList([qconv1x1(inp, inp, stride=1, args=args, force_fp=keep_point_conv) for i in range(number)]))
+                    self.point_conv = nn.ModuleList([override])
+            else:
                 self.skip2 = nn.Sequential()
         # skip connect structure off
 
@@ -325,36 +372,36 @@ class MobileNetV1(nn.Module):
         self.inplanes = int(32 * self.width_alpha)
 
         if 'cifar10' in args.keyword or 'cifar100' in args.keyword:
-            first_stride = 1
+            fstride = 1
             downsample_size = 16
         else:
-            first_stride = 2
+            fstride = 2
             downsample_size = 32
 
         if 'preBN' in args.keyword:
-            self.root = nn.Conv2d(3, self.inplanes, 3, first_stride, 1, bias=False)
+            self.root = nn.Conv2d(3, self.inplanes, 3, fstride, 1, bias=False)
             #self.pooling = nn.AvgPool2d(args.input_size // downsample_size)
             self.pooling = nn.Sequential(nn.BatchNorm2d(1024), actv(args), nn.AdaptiveAvgPool2d((1,1)))
         else:
-            self.root = conv_bn(3, self.inplanes, first_stride, args=args)
+            self.root = conv_bn(3, self.inplanes, fstride, args=args)
             #self.pooling = nn.AvgPool2d(args.input_size // downsample_size)
             self.pooling = nn.AdaptiveAvgPool2d((1,1))
 
         bottle = conv_dw
         self.model = nn.Sequential(
-            bottle(int(self.width_alpha *  32), int(self.width_alpha *  64), 1, args),
-            bottle(int(self.width_alpha *  64), int(self.width_alpha * 128), 2, args),
-            bottle(int(self.width_alpha * 128), int(self.width_alpha * 128), 1, args),
-            bottle(int(self.width_alpha * 128), int(self.width_alpha * 256), 2, args),
-            bottle(int(self.width_alpha * 256), int(self.width_alpha * 256), 1, args),
-            bottle(int(self.width_alpha * 256), int(self.width_alpha * 512), 2, args),
-            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, args),
-            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, args),
-            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, args),
-            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, args),
-            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, args),
-            bottle(int(self.width_alpha * 512), int(self.width_alpha *1024), 2, args),
-            bottle(int(self.width_alpha *1024), int(self.width_alpha *1024), 1, args),
+            bottle(int(self.width_alpha *  32), int(self.width_alpha *  64), 1, fstride * 1, args=args),
+            bottle(int(self.width_alpha *  64), int(self.width_alpha * 128), 2, fstride * 1, args=args),
+            bottle(int(self.width_alpha * 128), int(self.width_alpha * 128), 1, fstride * 2, args=args),
+            bottle(int(self.width_alpha * 128), int(self.width_alpha * 256), 2, fstride * 2, args=args),
+            bottle(int(self.width_alpha * 256), int(self.width_alpha * 256), 1, fstride * 4, args=args),
+            bottle(int(self.width_alpha * 256), int(self.width_alpha * 512), 2, fstride * 4, args=args),
+            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, fstride * 8, args=args),
+            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, fstride * 8, args=args),
+            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, fstride * 8, args=args),
+            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, fstride * 8, args=args),
+            bottle(int(self.width_alpha * 512), int(self.width_alpha * 512), 1, fstride * 8, args=args),
+            bottle(int(self.width_alpha * 512), int(self.width_alpha *1024), 2, fstride * 8, args=args),
+            bottle(int(self.width_alpha *1024), int(self.width_alpha *1024), 1, fstride *16, args=args),
         )
 
         self.classifier = nn.Sequential (

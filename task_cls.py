@@ -52,6 +52,7 @@ def get_parser(parser=None):
     parser.add_argument('--se_reduction', default=16, type=int, help='ratio in Squeeze-Excition Module')
     parser.add_argument('--stem_kernel', default=1, type=int)
     parser.add_argument('--order', default='none', type=str)
+    parser.add_argument('--policy', default='none', type=str)
 
     # config for activation quantization
     parser.add_argument('--fm_bit', default=None, type=float)
@@ -96,6 +97,7 @@ def get_parser(parser=None):
     parser.add_argument('--ot_quant_group', default=None, type=int)
     parser.add_argument('--ot_adaptive', default='none', type=str, choices=['none', 'var', 'mean', 'mean-var', 'var-mean'])
     parser.add_argument('--ot_grad_type', default='none', type=str, choices=['none', 'STE'])
+    parser.add_argument('--ot_independent_parameter', action='store_true', default=False, help="independent or shared parameters")
 
     # re-init the model to pre-calculate some initial value
     parser.add_argument('--re_init', action='store_true', default=False)
@@ -590,6 +592,7 @@ def validate(loader, model, criterion, args):
     model.eval()
 
     with torch.no_grad():
+        end = time.time()
         for step, data in enumerate(loader):
             if isinstance(data, list) and isinstance(data[0], dict):
                 input = data[0]['data']
@@ -618,6 +621,7 @@ def validate(loader, model, criterion, args):
             input = None
             target = None
             data = None
+        logging.info("evaluation time: %.3f s" % (time.time() - end))
 
     if 'dali' in args.dataset:
         loader.reset()
