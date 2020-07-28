@@ -31,6 +31,8 @@
 
    Refer instruction from EDSR-PyTorch: [how-to-train-edsr-and-mdsr](https://github.com/blueardour/EDSR-PyTorch#how-to-train-edsr-and-mdsr)
    
+   ***Link your training data to /workspace/git/EDSR-PyTorch/data***
+   
 
 ## Pretrained models and quantization results
 
