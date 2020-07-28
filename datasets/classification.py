@@ -5,6 +5,7 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import os
 import numpy as np
+from PIL import Image
 
 class Lighting(object):
     """Lighting noise(AlexNet - style PCA - based noise)"""
@@ -51,6 +52,40 @@ def fast_collate(batch):
         tensor[i] += torch.from_numpy(nump_array)
 
     return tensor, targets
+
+# for issue similar with https://github.com/python-pillow/Pillow/issues/1510
+def pil_loader(path):
+    # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
+    with open(path, 'rb') as f:
+        try:
+            img = Image.open(f)
+            return img.convert('RGB')
+        except IOError as e:
+            log_file = 'debug-image.txt'
+            if os.path.isfile(log_file):
+                log_file = open(log_file, 'a')
+            else:
+                log_file = open(log_file, 'w')
+            print("read image %s. Error: " % path, e, file=log_file)
+            log_file.close()
+            # fake image
+            img = Image.new('RGB', (256, 256))
+            return img
+
+def accimage_loader(path):
+    import accimage
+    try:
+        return accimage.Image(path)
+    except IOError:
+        # Potentially a decoding problem, fall back to PIL.Image
+        return pil_loader(path)
+
+def fix_loader(path):
+    from torchvision import get_image_backend
+    if get_image_backend() == 'accimage':
+        return accimage_loader(path)
+    else:
+        return pil_loader(path)
 
 def imagenet_loader(split, args=None, cfg=None):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -103,7 +138,8 @@ def imagenet_loader(split, args=None, cfg=None):
         else:
             dataset = None
 
-    dataset = datasets.folder.ImageFolder(root=os.path.join(args.root, split), transform=transform)
+    dataset = datasets.folder.ImageFolder(root=os.path.join(args.root, split), transform=transform,
+            loader=fix_loader)
     sampler = None
     collate_fn = None
     if args.distributed:
