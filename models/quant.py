@@ -74,24 +74,36 @@ class quantization(nn.Module):
             ## channel wise for both
             #self.quant_group = shape[0] if self.tag == 'wt' else shape[1]
 
+        if not self.enable:
+            return
+
         self.fan = 1 # mode = 'fan_in' as default 
         for i in range(len(self.shape)-1):
             self.fan *= self.shape[i+1]
 
-        if not self.enable:
-            return
+        self.nElements = 1
+        for i in self.shape:
+            self.nElements = self.nElements * i
+        self.nElements = self.nElements // self.quant_group
+        if self.tag in ['fm', 'ot']:
+            batch_size = getattr(args, 'batch_size', 1)
+            batch_size = getattr(args, 'batch_size_per_machine', batch_size)
+            self.nElements *= batch_size
+            if feature_stride is not None:
+                self.nElements *= (args.input_size // feature_stride)
+                self.nElements *= (args.input_size // feature_stride)
 
         if 'proxquant' in getattr(self.args, 'keyword', []):
             self.prox = 0
 
-        self.logger.info("half_range({}), bit({}), num_levels({}), quant_group({}) boundary({}) scale({}) ratio({}) fan({}) tag({})".format(
-            self.half_range, self.bit, self.num_levels, self.quant_group, self.boundary, self.scale, self.ratio, self.fan, self.tag))
-
-        self.times = nn.Parameter(torch.zeros(1), requires_grad=False)
+        self.iteration = nn.Parameter(torch.zeros(1), requires_grad=False)
         self.learning_rate = 1
         self.init_learning_rate = 1
         self.progressive = False
         self.init()
+
+        self.logger.info("half_range({}), bit({}), num_levels({}), quant_group({}) boundary({}) scale({}) ratio({}) tag({})".format(
+            self.half_range, self.bit, self.num_levels, self.quant_group, self.boundary, self.scale, self.ratio, self.tag))
 
     def __repr__(self):
         return self.__str__()
@@ -161,8 +173,10 @@ class quantization(nn.Module):
                     'none': 1,
                     'fan-scale': np.sqrt(self.fan) * self.scale,
                     'scale-fan': self.scale / np.sqrt(self.fan),
+                    'element-scale': np.sqrt(self.nElements) * self.scale,
+                    'scale-element': self.scale / np.sqrt(self.nElements),
                     }[self.grad_scale]
-            self.logger.info('update %s_grad_scale %f' % (self.tag, self.grad_scale))
+            self.logger.info('update %s_grad_scale %f, nElements: %d' % (self.tag, self.grad_factor, self.nElements))
             if self.tag == 'fm':
                 if 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
@@ -345,14 +359,14 @@ class quantization(nn.Module):
 
         if 'custom-update' not in self.args.keyword:
             self.basis.data = basis
-            self.times.data = self.times.data + 1
+            self.iteration.data = self.iteration.data + 1
         else:
-            self.basis.data = self.basis.data * self.times  + self.auxil
-            self.times.data = self.times.data + 1
-            self.basis.data = self.basis.data / self.times
+            self.basis.data = self.basis.data * self.iteration  + self.auxil
+            self.iteration.data = self.iteration.data + 1
+            self.basis.data = self.basis.data / self.iteration
 
     def quantization_value(self, x, y):
-        if self.times.data < self.args.stable:
+        if self.iteration.data < self.args.stable:
             self.init_based_on_warmup(x)
             return x
         elif 'proxquant' in self.args.keyword:
@@ -401,19 +415,19 @@ class quantization(nn.Module):
         if self.method == 'dorefa':
             if self.tag in ['fm', 'ot']:
                 if 'lsq' in self.args.keyword or '{}_lsq'.format(self.tag) in self.args.keyword:
-                    self.clip_val = dorefa.GradientScale(self.clip_val, self.grad_factor)
+                    clip_val = dorefa.GradientScale(self.clip_val, self.grad_factor)
                     if self.half_range:
-                        y = x / self.clip_val
+                        y = x / clip_val
                         y = torch.clamp(y, min=0, max=1)
                         y = self.quant.apply(y, self.num_levels - 1)
-                        y = y * self.clip_val
+                        y = y * clip_val
                     else:
-                        y = x / self.clip_val
+                        y = x / clip_val
                         y = torch.clamp(y, min=-1, max=1)
                         y = (y + 1.0) / 2.0
                         y = self.quant.apply(y, self.num_levels - 1)
                         y = y * 2.0 - 1.0
-                        y = y * self.clip_val
+                        y = y * clip_val
                 elif 'non-uniform' in self.args.keyword or '{}_non-uniform'.format(self.tag) in self.args.keyword:
                     if self.half_range:
                         y1 = x * self.alpha0
@@ -457,13 +471,13 @@ class quantization(nn.Module):
                     std, mean = torch.std_mean(x.data.reshape(self.quant_group, -1, 1, 1, 1), 1)
                     x = (x - mean) / (std + __EPS__)
                 if 'lsq' in self.args.keyword or 'wt_lsq' in self.args.keyword:
-                    self.clip_val = dorefa.GradientScale(self.clip_val, self.grad_factor)
-                    y = x / self.clip_val
+                    clip_val = dorefa.GradientScale(self.clip_val, self.grad_factor)
+                    y = x / clip_val
                     y = torch.clamp(y, min=-1, max=1)
                     y = (y + 1.0) / 2.0
                     y = self.quant.apply(y, self.num_levels - 1)
                     y = y * 2.0 - 1.0
-                    y = y * self.clip_val
+                    y = y * clip_val
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
                     y1 = x * self.alpha0
                     y1 = torch.clamp(y1, min=-1, max=0)
@@ -483,7 +497,7 @@ class quantization(nn.Module):
             else:
                 raise RuntimeError("Should not reach here for Dorefa-Net method")
 
-            self.times.data = self.times.data + 1
+            self.iteration.data = self.iteration.data + 1
             return self.quantization_value(x, y)
 
         raise RuntimeError("Should not reach here in quant.py")

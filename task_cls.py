@@ -69,7 +69,7 @@ def get_parser(parser=None):
     parser.add_argument('--fm_adaptive', default='none', type=str, choices=['none', 'var', 'mean', 'mean-var', 'var-mean'])
     parser.add_argument('--fm_custom', default='none', type=str, choices=['none', 'channel', 'resolution'])
     parser.add_argument('--fm_grad_type', default='none', type=str, choices=['none', 'STE', 'Triangle'])
-    parser.add_argument('--fm_grad_scale', default='none', type=str, choices=['none', 'fan-scale', 'scale-fan'])
+    parser.add_argument('--fm_grad_scale', default='none', type=str, choices=['none', 'fan-scale', 'scale-fan', 'element-scale', 'scale-element'])
 
     # config for weight quantization
     parser.add_argument('--wt_bit', default=None, type=float)
@@ -84,7 +84,7 @@ def get_parser(parser=None):
     parser.add_argument('--wt_quant_group', default=None, type=int)
     parser.add_argument('--wt_adaptive', default='none', type=str, choices=['none', 'var', 'mean', 'mean-var', 'var-mean'])
     parser.add_argument('--wt_grad_type', default='none', type=str, choices=['none', 'STE'])
-    parser.add_argument('--wt_grad_scale', default='none', type=str, choices=['none', 'fan-scale', 'scale-fan'])
+    parser.add_argument('--wt_grad_scale', default='none', type=str, choices=['none', 'fan-scale', 'scale-fan', 'element-scale', 'scale-element'])
 
     # config for output quantization
     parser.add_argument('--ot_bit', default=None, type=float)
@@ -99,7 +99,7 @@ def get_parser(parser=None):
     parser.add_argument('--ot_quant_group', default=None, type=int)
     parser.add_argument('--ot_adaptive', default='none', type=str, choices=['none', 'var', 'mean', 'mean-var', 'var-mean'])
     parser.add_argument('--ot_grad_type', default='none', type=str, choices=['none', 'STE'])
-    parser.add_argument('--ot_grad_scale', default='none', type=str, choices=['none', 'fan-scale', 'scale-fan'])
+    parser.add_argument('--ot_grad_scale', default='none', type=str, choices=['none', 'fan-scale', 'scale-fan', 'element-scale', 'scale-element'])
     parser.add_argument('--ot_independent_parameter', action='store_true', default=False, help="independent or shared parameters")
 
     # re-init the model to pre-calculate some initial value
