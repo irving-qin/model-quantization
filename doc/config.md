@@ -13,7 +13,7 @@ Run `bash train.sh config.dorefa.eval.imagenet.fp.resnet18` to test the PreBN Re
 
 ## Super Resolution
 
-### For developers
+## For developers
 
 1. Do not include any user/name/folder/path with respect to one's own machine in any config file and scripts. Inlcude those in `.env` file with enviroment vairables. Relative path is suggested.
 
