@@ -33,6 +33,11 @@
    
    ***Link your training data to /workspace/git/EDSR-PyTorch/data*** The `train.sh` script in `src` folder finds data in `../data` folder by default.
    
+## To start
+
+```
+bash train.sh config/config.*
+```
 
 ## Pretrained models and quantization results
 
