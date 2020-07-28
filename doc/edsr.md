@@ -36,8 +36,11 @@
 ## To start
 
 ```
-bash train.sh config/config.*
+cd /workspace/git/EDSR-PyTorch/src
+bash train.sh config.*
 ```
+
+Ongoing `config.*` is advised to put in `/workspace/git/EDSR-PyTorch/src`. Verified files which are to be released should be moved to `/workspace/git/EDSR-PyTorch/src/config`.
 
 ## Pretrained models and quantization results
 
