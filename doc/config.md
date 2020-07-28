@@ -1,5 +1,5 @@
 
-
+## Classification
 
 Default naming pattern is `config` + `method` + `phase` + `dataset` + `precision` + `network`.
 
@@ -10,3 +10,11 @@ where `phase` contains `eval` for evaluation; `train-stratch` for training witho
 For example, `config.dorefa.eval.imagenet.fp.resnet18` inidcates to evaluate the ResNet-18 network on imagenet dataset with full precision.
 
 Run `bash train.sh config.dorefa.eval.imagenet.fp.resnet18` to test the PreBN ResNet-18 on imagenet. Expected accuracy: Top-1(70.1) and Top-5(89.3).
+
+## Super Resolution
+
+### For developers
+
+1. Do not include any user/name/data/path in respect to own machine in any config file and scripts. Inlcude those in `.env` file with enviroment vairables.
+
+2. All options have one space ahead, replace with `#` to denote it. Do not add extra space to keep left alignment
