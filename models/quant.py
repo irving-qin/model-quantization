@@ -181,6 +181,7 @@ class quantization(nn.Module):
                 if 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
                     self.quant = dorefa.LSQ
+                    self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
                 elif 'non-uniform' in self.args.keyword or 'fm_non-uniform' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]), requires_grad = False)
@@ -212,6 +213,7 @@ class quantization(nn.Module):
                         self.clip_val = nn.Parameter(torch.zeros(self.quant_group, 1, 1, 1))
                     self.clip_val.data.fill_(self.boundary)
                     self.quant = dorefa.LSQ
+                    self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
                     self.quant = dorefa.RoundSTE
@@ -235,6 +237,7 @@ class quantization(nn.Module):
                 if 'lsq' in self.args.keyword or 'ot_lsq' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
                     self.quant = dorefa.LSQ
+                    self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
                 elif 'non-uniform' in self.args.keyword or 'pact' in self.args.keyword:
                     raise RuntimeError("error keyword for the method, specific accurate tag please")
@@ -421,12 +424,12 @@ class quantization(nn.Module):
                     clip_val = dorefa.GradientScale(self.clip_val, self.grad_factor)
                     if self.half_range:
                         y = x / clip_val
-                        y = torch.clamp(y, min=0, max=1)
+                        y = self.clamp(y, min=0, max=1)
                         y = self.quant.apply(y, self.num_levels - 1)
                         y = y * clip_val
                     else:
                         y = x / clip_val
-                        y = torch.clamp(y, min=-1, max=1)
+                        y = self.clamp(y, min=-1, max=1)
                         y = (y + 1.0) / 2.0
                         y = self.quant.apply(y, self.num_levels - 1)
                         y = y * 2.0 - 1.0
@@ -476,7 +479,7 @@ class quantization(nn.Module):
                 if 'lsq' in self.args.keyword or 'wt_lsq' in self.args.keyword:
                     clip_val = dorefa.GradientScale(self.clip_val, self.grad_factor)
                     y = x / clip_val
-                    y = torch.clamp(y, min=-1, max=1)
+                    y = self.clamp(y, min=-1, max=1)
                     y = (y + 1.0) / 2.0
                     y = self.quant.apply(y, self.num_levels - 1)
                     y = y * 2.0 - 1.0

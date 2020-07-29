@@ -5,7 +5,7 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import os
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFile
 
 class Lighting(object):
     """Lighting noise(AlexNet - style PCA - based noise)"""
@@ -138,8 +138,9 @@ def imagenet_loader(split, args=None, cfg=None):
         else:
             dataset = None
 
-    dataset = datasets.folder.ImageFolder(root=os.path.join(args.root, split), transform=transform,
-            loader=fix_loader)
+    ImageFile.LOAD_TRUNCATED_IMAGES = True
+    dataset = datasets.folder.ImageFolder(root=os.path.join(args.root, split), transform=transform) #,
+    #        loader=fix_loader)
     sampler = None
     collate_fn = None
     if args.distributed:

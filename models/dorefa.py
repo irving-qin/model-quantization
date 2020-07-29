@@ -1,5 +1,6 @@
 
 import torch
+import numpy as np
 
 __EPS__ = 1e-5
 
@@ -23,9 +24,17 @@ class LSQ(torch.autograd.Function):
     def backward(ctx, grad_output):
         return grad_output, None
 
+##############################################################
 def GradientScale(x, scale):
     yGrad = x * scale
     return (x - yGrad).detach() + yGrad
+
+def ClampWithScale(x, min=0, max=1):
+    filtered = x >= lower & x <= upper
+    scale = x.numel() / filtered.sum().item()
+    scale = np.sqrt(scale)
+    y = torch.clamp(x, min=min, max=max)
+    return GradientScale(y, scale)
 
 ##############################################################
 ## Dorefa-net (https://arxiv.org/pdf/1606.06160.pdf)
