@@ -30,7 +30,7 @@ def GradientScale(x, scale):
     return (x - yGrad).detach() + yGrad
 
 def ClampWithScale(x, min=0, max=1):
-    filtered = x >= min & x <= max
+    filtered = (x >= min) & (x <= max)
     scale = x.numel() / filtered.sum().item()
     scale = np.sqrt(scale)
     y = torch.clamp(x, min=min, max=max)
