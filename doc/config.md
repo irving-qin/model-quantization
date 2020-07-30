@@ -3,7 +3,7 @@
 
 Default naming pattern is `config` + `method` + `phase` + `dataset` + `precision` + `network`.
 
-where `phase` contains `eval` for evaluation; `train-stratch` for training without pretrained model; `finetuning` means training with pretrained model as the initilization.
+where `phase` contains `eval` for evaluation; `train-scratch` for training without pretrained model; `finetuning` means training with pretrained model as the initilization.
 
 `dataset` can be chosen from `imagenet` for the imagenet dataset; `dali` for the imagenet dataset wrappered in nvidia dali for fast preprocessing; `cifar10` for CIFAR10 dataset; `cifar100` for CIFAR100 dataset and `fake` for fake images for testing.
 
