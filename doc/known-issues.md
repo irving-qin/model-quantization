@@ -7,3 +7,5 @@
    Failing to import plugin, ModuleNotFoundError("No module named 'plugin'")
    loading third party model failed cannot import name 'model_zoo' from 'third_party' (unknown location)
    ```
+   
+3. Some words in the filename or config file are misspelled and we revise them anytime we found one. Thus, latency files might suffer from 'not-found' error. Check the filename if meeting such a situation. 
