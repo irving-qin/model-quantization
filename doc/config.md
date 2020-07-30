@@ -1,5 +1,5 @@
 
-## Classification
+## General
 
 Default naming pattern is `config` + `method` + `phase` + `dataset` + `precision` + `network`.
 
@@ -11,7 +11,6 @@ For example, `config.dorefa.eval.imagenet.fp.resnet18` inidcates to evaluate the
 
 Run `bash train.sh config.dorefa.eval.imagenet.fp.resnet18` to test the PreBN ResNet-18 on imagenet. Expected accuracy: Top-1(70.1) and Top-5(89.3).
 
-## Super Resolution
 
 ## For developers
 
