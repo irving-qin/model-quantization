@@ -8,8 +8,8 @@ model='resnet18'
 train_batch=128
 val_batch=50
 
-case='dali-xnor-NReLU-stratch-fm_triangle-wt_pass-bin-cbsa_wd1e-4_sgd_0'
-keyword='debug,imagenet,NReLU,fix_pooling,origin,cbsa,singleconv,real_skip,xnor'
+case='dali-xnor-NReLU-scratch-gamma-bin-cbsa_wd1e-4_sgd_0'
+keyword='debug,imagenet,NReLU,fix_pooling,origin,cbsa,singleconv,real_skip,xnor,gamma'
 
 pretrained='none'
 options="$options --pretrained $pretrained"
@@ -38,6 +38,6 @@ epochs=60
 options="$options --fm_bit 1 --fm_enable"
 options="$options --wt_bit 1 --wt_enable"
 options="$options --padding_after_quant"
-options="$options --fm_grad_type Triangle"
+options="$options --fm_grad_type STE"
 
 

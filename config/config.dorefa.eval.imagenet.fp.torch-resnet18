@@ -8,7 +8,7 @@ model='pytorch-resnet18'
 train_batch=256
 val_batch=50
 
-case='imagenet-dorefa-stratch-fp-sgd'
+case='imagenet-dorefa-scratch-fp-sgd'
 keyword='imagenet'
 
 pretrained='none'

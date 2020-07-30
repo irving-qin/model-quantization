@@ -8,7 +8,7 @@ options="$options --width_alpha 0.25"
 train_batch=128
 val_batch=50
 
-case='cifar100-ldn-stratch-fp-pytorch-baseline-wd1e-4-sgd_0'
+case='cifar100-ldn-scratch-fp-pytorch-baseline-wd1e-4-sgd_0'
 keyword='cifar100,origin,cbsa,fix_pooling,singleconv,fix,real_skip'
 
 pretrained='None'

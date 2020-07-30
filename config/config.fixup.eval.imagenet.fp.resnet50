@@ -8,10 +8,10 @@ model='resnet50'
 train_batch=128
 val_batch=50
 
-case='imagenet-fixup-stratch-fp-cbsa-mixup0.7-sgd_1'
+case='imagenet-fixup-scratch-fp-cbsa-mixup0.7-sgd_1'
 keyword='imagenet,origin,cbsa,fix,fixup,bias,singleconv'
 
-pretrained='dali-fixup-stratch-fp-cbsa-sgd_1-model_best-update.pth.tar'
+pretrained='dali-fixup-scratch-fp-cbsa-sgd_1-model_best-update.pth.tar'
 options="$options --pretrained $pretrained"
 
  options="$options --tensorboard"

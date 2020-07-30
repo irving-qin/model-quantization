@@ -8,7 +8,7 @@ model='resnet18'
 train_batch=128
 val_batch=50
 
-case='dali-bireal-NReLU-stratch-fm_triangle-wt_ste-bin-cbsa-wd0_sgd_0'
+case='dali-bireal-NReLU-scratch-fm_triangle-wt_ste-bin-cbsa-wd0_sgd_0'
 keyword='debug,imagenet,NReLU,fix_pooling,cbsa,singleconv,real_skip,xnor'
 
 pretrained='none'

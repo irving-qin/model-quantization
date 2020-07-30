@@ -12,7 +12,7 @@ case='dali-lq_net-finetune-2bit-wt_qg_mean-var-bacs_sgd_1'
 keyword='imagenet,origin,preBN,bacs,custom-update,lq'
 
 pretrained='none'
-pretrained='dali-dorefa-stratch-fp-bacs_0-model_best.pth.tar'
+pretrained='dali-dorefa-scratch-fp-bacs_0-model_best.pth.tar'
 options="$options --pretrained $pretrained"
 
  options="$options --tensorboard"

@@ -8,7 +8,7 @@ model='resnet18'
 train_batch=256
 val_batch=50
 
-case='imagenet-dorefa-stratch-fp-cbsa_pytorch'
+case='imagenet-dorefa-scratch-fp-cbsa_pytorch'
 keyword='imagenet,origin,cbsa,fix_pooling,singleconv,fix'
 
 # python tools.py --keyword update,raw \

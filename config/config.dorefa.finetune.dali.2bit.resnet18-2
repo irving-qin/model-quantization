@@ -13,7 +13,7 @@ case='dali-dorefa-finetune-2bit-bacs-fb_5.0-wt_gq-sgd_0-O1'
 keyword='imagenet,origin,preBN,bacs,custom-update,debug,dorefa'
 
 pretrained='none'
-pretrained='dali-dorefa-stratch-fp-bacs_0-model_best.pth.tar'
+pretrained='dali-dorefa-scratch-fp-bacs_0-model_best.pth.tar'
 options="$options --pretrained $pretrained"
 
  options="$options --tensorboard"

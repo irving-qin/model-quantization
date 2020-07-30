@@ -8,7 +8,7 @@ options="$options --width_alpha 0.25"
 train_batch=128
 val_batch=50
 
-case='cifar100-ldn-stratch-fp-pytorch-order_cba-wd1e-4-sgd_0'
+case='cifar100-ldn-scratch-fp-pytorch-order_cb-wd1e-4-sgd_0'
 keyword='cifar100,origin,cbsa,fix_pooling,singleconv,fix,ReShapeResolution,real_skip'
 
 pretrained='None'
@@ -23,7 +23,7 @@ options="$options --pretrained $pretrained"
  options="$options --wd 1e-4"
  options="$options --decay_small"
 #options="$options --custom_lr_list alpha --custom_lr 1e-3"
- options="$options --order cba"
+ options="$options --order cb"
 
  epochs=200
 # SGD

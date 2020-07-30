@@ -8,7 +8,7 @@ model='resnet18'
 train_batch=256
 val_batch=50
 
-case='imagenet-ldn-stratch-fp-pytorch-order_ca-sgd_0'
+case='imagenet-ldn-scratch-fp-pytorch-order_c-sgd_0'
 keyword='imagenet,origin,cbsa,fix_pooling,singleconv,fix,ReShapeResolution,real_skip'
 
 pretrained='None'
@@ -23,7 +23,7 @@ options="$options --pretrained $pretrained"
  options="$options --wd 1e-4"
  options="$options --decay_small"
 #options="$options --custom_lr_list alpha --custom_lr 1e-3"
- options="$options --order ca"
+ options="$options --order c"
 
  epochs=90
 # SGD

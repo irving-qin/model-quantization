@@ -12,7 +12,7 @@ case='imagenet-pact-finetune-2bit-bacs_sgd_0'
 keyword='imagenet,origin,preBN,bacs,pact'
 
 pretrained='none'
-pretrained='dali-dorefa-stratch-fp-bacs_0-model_best.pth.tar'
+pretrained='dali-dorefa-scratch-fp-bacs_0-model_best.pth.tar'
 options="$options --pretrained $pretrained"
 
  options="$options --tensorboard"

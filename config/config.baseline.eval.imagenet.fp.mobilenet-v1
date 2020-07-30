@@ -8,10 +8,10 @@ model='mobilenetv1'
 train_batch=256
 val_batch=50
 
-case='imagenet-baseline-stratch-fp-cbas_5'
+case='imagenet-baseline-scratch-fp-cbas_5'
 keyword='imagenet,origin,cbas'
 
-pretrained='imagenet-fr-alqnet-stratch-fp-cbas_5-model_best.pth.tar'
+pretrained='imagenet-fr-alqnet-scratch-fp-cbas_5-model_best.pth.tar'
 options="$options --pretrained $pretrained"
 
  options="$options --tensorboard"
