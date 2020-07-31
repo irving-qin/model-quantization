@@ -288,17 +288,17 @@ class quantization(nn.Module):
                     self.logger.warning('unexpect string in by_index: {}'.format(by_index))
 
             if by_index == 'all' or self.index in by_index:
-                if 'by_tag' in parameters:
-                    if self.tag in parameters['by_tag']:
+                if ('by_tag' in parameters and self.tag in parameters['by_tag']) or ('by_tag' not in parameters):
                         for k, v in list(parameters.items()):
                             if hasattr(self, "{}".format(k)):
+                                if isinstance(getattr(self, k), bool):
+                                    v = False if v in ['False', 'false', False] else True
+                                elif isinstance(getattr(self, k), int):
+                                    v = int(v)
+                                elif isinstance(getattr(self, k), float):
+                                    v = float(v)
                                 setattr(self, "{}".format(k), v)
                                 self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, getattr(self, k, 'Non-Exist'), self.index))
-                else:
-                    for k, v in list(parameters.items()):
-                        if hasattr(self, "{}".format(k)):
-                            setattr(self, "{}".format(k), v)
-                            self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, getattr(self, k, 'Non-Exist'), self.index))
 
         if not self.enable:
             return
