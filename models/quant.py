@@ -293,12 +293,12 @@ class quantization(nn.Module):
                         for k, v in list(parameters.items()):
                             if hasattr(self, "{}".format(k)):
                                 setattr(self, "{}".format(k), v)
-                                self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, v, self.index))
+                                self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, getattr(self, k, 'Non-Exist'), self.index))
                 else:
                     for k, v in list(parameters.items()):
                         if hasattr(self, "{}".format(k)):
                             setattr(self, "{}".format(k), v)
-                            self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, v, self.index))
+                            self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, getattr(self, k, 'Non-Exist'), self.index))
 
         if not self.enable:
             return
