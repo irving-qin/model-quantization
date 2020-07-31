@@ -303,8 +303,7 @@ class quantization(nn.Module):
         if not self.enable:
             return
         else:
-            assert self.method != 'none', "quantization enable but without specific method, likely the policy is not correct"
-
+            assert self.method != 'none', "quantization enable but without specific method in layer(index:{}, tag:{})".format(self.index, self.tag)
 
         if self.method == 'dorefa':
             if 'progressive' in parameters:
