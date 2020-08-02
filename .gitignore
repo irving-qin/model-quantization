@@ -21,6 +21,10 @@ log
 *.swn
 *.swm
 *.swo
+*.swj
+*.swl
+*.swk
+*.swi
 
 # env
 .env
