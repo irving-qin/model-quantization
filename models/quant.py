@@ -105,6 +105,9 @@ class quantization(nn.Module):
 
         self.logger.info("half_range({}), bit({}), num_levels({}), quant_group({}) boundary({}) scale({}) ratio({}) tag({})".format(
             self.half_range, self.bit, self.num_levels, self.quant_group, self.boundary, self.scale, self.ratio, self.tag))
+        if 'debug' in getattr(self.args, 'keyword', []):
+            self.logger.info("adaptive({}) grad_scale({}) grad_type({}) norm_group({})".format(
+                self.adaptive, self.grad_scale, self.grad_type, self.norm_group))
 
     def __repr__(self):
         return self.__str__()
@@ -178,6 +181,7 @@ class quantization(nn.Module):
                     'scale-element': self.scale / np.sqrt(self.nElements),
                     }[self.grad_scale]
             self.logger.info('update %s_grad_scale %f, nElements: %d' % (self.tag, self.grad_factor, self.nElements))
+            assert not (self.tag in ['fm', 'ot'] and self.quant_group != 1), "quant_group should be 1 for feature map quantization"
             if self.tag == 'fm':
                 if 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
