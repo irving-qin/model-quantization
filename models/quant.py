@@ -181,7 +181,8 @@ class quantization(nn.Module):
                     'scale-element': self.scale / np.sqrt(self.nElements),
                     }[self.grad_scale]
             self.logger.info('update %s_grad_scale %f, nElements: %d' % (self.tag, self.grad_factor, self.nElements))
-            assert not (self.tag in ['fm', 'ot'] and self.quant_group != 1), "quant_group should be 1 for feature map quantization"
+            if self.tag in ['fm', 'ot'] and self.quant_group != 1:
+                self.logger.warning("quant_group is advised to be 1 for feature map quantization")
             if self.tag == 'fm':
                 if 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
