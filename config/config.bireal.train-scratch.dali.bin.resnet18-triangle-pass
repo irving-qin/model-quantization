@@ -5,10 +5,10 @@ root=$FASTDIR/data/imagenet
 model='resnet18'
 #options="$options --width_alpha 0.25"
 
-train_batch=128
+train_batch=256
 val_batch=50
 
-case='dali-bireal-NReLU-scratch-fm_triangle-wt_pass-bin-cbsa-wd0_sgd_0'
+case='dali-bireal-NReLU-scratch-fm_triangle-wt_pass-bin-cbsa-wd0_adam_5'
 keyword='debug,imagenet,NReLU,fix_pooling,cbsa,singleconv,real_skip,xnor'
 
 pretrained='none'
@@ -25,15 +25,18 @@ options="$options --pretrained $pretrained"
 #options="$options --stable 10"
 #options="$options --report_freq 1"
 #options="$options --fp16 --opt_level O1"
-#options="$options --optimizer ADAM"
+ options="$options --optimizer ADAM"
  options="$options --wd 0"
 #options="$options --wd 2e-5"
 
-epochs=60
- options="$options --lr 1e-1 --lr_decay 0.1 --lr_policy custom_step --lr_custom_step 30,40 --nesterov"
+#epochs=60
+ epochs=100
+#options="$options --lr 1e-1 --lr_decay 0.1 --lr_policy custom_step --lr_custom_step 30,40 --nesterov"
 #options="$options --lr 5e-3 --lr_decay 0.1 --lr_policy custom_step --lr_custom_step 30,40 --nesterov"
 #options="$options --lr 1e-4 --lr_decay 0.1 --lr_policy custom_step --lr_custom_step 30,40 --nesterov"
 #options="$options --lr 1e-1 --lr_policy sgdr --lr_custom_step 60  --nesterov"
+#options="$options --lr 1e-3 --lr_policy sgdr --lr_custom_step 100  --nesterov"
+ options="$options --lr 1e-3 --lr_policy poly --lr_custom_step 100 --lr_decay 1.0  --nesterov"
 
  options="$options --fm_bit 1 --fm_enable"
  options="$options --wt_bit 1 --wt_enable"
