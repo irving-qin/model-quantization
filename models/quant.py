@@ -73,6 +73,7 @@ class quantization(nn.Module):
             self.quant_group = shape[0] if self.tag == 'wt' else 1
             ## channel wise for both
             #self.quant_group = shape[0] if self.tag == 'wt' else shape[1]
+        self.norm_group = 1 if 'independent_norm' in getattr(self.args, 'keyword') else self.quant_group
 
         if not self.enable:
             return
@@ -104,6 +105,9 @@ class quantization(nn.Module):
 
         self.logger.info("half_range({}), bit({}), num_levels({}), quant_group({}) boundary({}) scale({}) ratio({}) tag({})".format(
             self.half_range, self.bit, self.num_levels, self.quant_group, self.boundary, self.scale, self.ratio, self.tag))
+        if 'debug' in getattr(self.args, 'keyword', []):
+            self.logger.info("adaptive({}) grad_scale({}) grad_type({}) norm_group({})".format(
+                self.adaptive, self.grad_scale, self.grad_type, self.norm_group))
 
     def __repr__(self):
         return self.__str__()
@@ -177,6 +181,8 @@ class quantization(nn.Module):
                     'scale-element': self.scale / np.sqrt(self.nElements),
                     }[self.grad_scale]
             self.logger.info('update %s_grad_scale %f, nElements: %d' % (self.tag, self.grad_factor, self.nElements))
+            if self.tag in ['fm', 'ot'] and self.quant_group != 1:
+                self.logger.warning("quant_group is advised to be 1 for feature map quantization")
             if self.tag == 'fm':
                 if 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
@@ -409,7 +415,7 @@ class quantization(nn.Module):
                 y = self.quant_fm.apply(x, self.custom, self.grad_type)
             else:
                 if self.adaptive == 'var-mean':
-                    std, mean = torch.std_mean(x.data.reshape(self.quant_group, -1, 1, 1, 1), 1)
+                    std, mean = torch.std_mean(x.data.reshape(self.norm_group, -1, 1, 1, 1), 1)
                     x = (x - mean) / (std + __EPS__)
                 y = self.quant_wt.apply(x, self.quant_group, self.grad_type)
                 if 'gamma' in self.args.keyword:
@@ -473,7 +479,7 @@ class quantization(nn.Module):
                     y = y * self.gamma
             elif self.tag == 'wt':
                 if self.adaptive == 'var-mean':
-                    std, mean = torch.std_mean(x.data.reshape(self.quant_group, -1, 1, 1, 1), 1)
+                    std, mean = torch.std_mean(x.data.reshape(self.norm_group, -1, 1, 1, 1), 1)
                     x = (x - mean) / (std + __EPS__)
                 if 'lsq' in self.args.keyword or 'wt_lsq' in self.args.keyword:
                     clip_val = dorefa.GradientScale(self.clip_val, self.grad_factor)
