@@ -181,16 +181,25 @@ class quantization(nn.Module):
                     'scale-element': self.scale / np.sqrt(self.nElements),
                     }[self.grad_scale]
             self.logger.info('update %s_grad_scale %f, nElements: %d' % (self.tag, self.grad_factor, self.nElements))
-            if self.tag in ['fm', 'ot'] and self.quant_group != 1:
-                self.logger.warning("quant_group is advised to be 1 for feature map quantization")
+            #if self.tag in ['fm', 'ot'] and self.quant_group != 1:
+            #    self.logger.warning("quant_group is advised to be 1 for feature map quantization")
             if self.tag == 'fm':
                 if 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
-                    self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
+                    if self.quant_group == 1:
+                        self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
+                    else:
+                        self.clip_val = nn.Parameter(torch.zeros(1, self.quant_group, 1, 1))
+                    self.clip_val.data.fill_(self.boundary)
                     self.quant = dorefa.LSQ
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
                 elif 'non-uniform' in self.args.keyword or 'fm_non-uniform' in self.args.keyword:
-                    self.clip_val = nn.Parameter(torch.Tensor([self.boundary]), requires_grad = False)
+                    if self.quant_group == 1:
+                        self.clip_val = nn.Parameter(torch.Tensor([self.boundary]), requires_grad = False)
+                    else:
+                        self.clip_val = nn.Parameter(torch.zeros(1, self.quant_group, 1, 1)), requires_grad = False)
+                        raise RuntimeError("function for verified")
+                    self.clip_val.data.fill_(self.boundary)
                     self.custom_ratio = self.ratio
                     self.quant = dorefa.RoundSTE
                     assert self.num_levels <= 4, 'non-uniform target at 2bit, ter, bin'
@@ -205,7 +214,10 @@ class quantization(nn.Module):
                         self.choice = self.choice + '-with-closed_form'
                 elif 'pact' in self.args.keyword:
                     self.quant = dorefa.qfn
-                    self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
+                    if self.quant_group == 1:
+                        self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
+                    else:
+                        raise RuntimeError("function for verified")
                     self.choice = 'pact'
                 else: # Dorefa-Net
                     self.quant = dorefa.qfn
@@ -240,6 +252,8 @@ class quantization(nn.Module):
                     self.gamma = nn.Parameter(torch.ones(self.quant_group, 1, 1, 1))
                     self.choice = self.choice + '-with-gamma'
             elif self.tag == 'ot':
+                if self.quant_group != 1:
+                    raise RuntimeError("function for verified")
                 if 'lsq' in self.args.keyword or 'ot_lsq' in self.args.keyword:
                     self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
                     self.quant = dorefa.LSQ
