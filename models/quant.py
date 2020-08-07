@@ -510,6 +510,8 @@ class quantization(nn.Module):
                     y = y * 2.0 - 1.0
                     y = y * clip_val
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
+                    c1, c2, kh, kw = x.shape
+                    x = x.reshape(self.quant_group, -1, kh, kw)
                     y1 = x * self.alpha0
                     y1 = torch.clamp(y1, min=-1, max=0)
                     y1 = self.quant.apply(y1, self.custom_ratio)
@@ -517,6 +519,7 @@ class quantization(nn.Module):
                     y2 = torch.clamp(y2, min=0, max=1)
                     y2 = self.quant.apply(y2, self.custom_ratio)
                     y = y1 + y2
+                    y = y.reshape(c1, c2, kh, kw)
                 elif 'wt_bin' in self.args.keyword and self.num_levels == 2:
                     y = self.quant.apply(x, self.adaptive)
                 else:
