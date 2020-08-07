@@ -457,6 +457,8 @@ class quantization(nn.Module):
                         y = y * 2.0 - 1.0
                         y = y * clip_val
                 elif 'non-uniform' in self.args.keyword or '{}_non-uniform'.format(self.tag) in self.args.keyword:
+                    b, c, h, w = x.shape
+                    x = x.reshape(b, self.quant_group, 1, -1)
                     if self.half_range:
                         y1 = x * self.alpha0
                         y1 = torch.clamp(y1, min=0, max=1)
@@ -485,6 +487,7 @@ class quantization(nn.Module):
                             self.auxil.data = dorefa.non_uniform_scale(x.detach(), y.detach())
                             self.update_bias(self.auxil.data)
                         y = y * self.basis
+                    y = y.reshape(b, c, h, w)
                 elif 'pact' in self.args.keyword:
                     y = torch.clamp(x, min=0) # might not necessary when ReLU is applied in the network
                     y = torch.where(y < self.clip_val, y, self.clip_val)
