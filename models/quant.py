@@ -201,6 +201,7 @@ class quantization(nn.Module):
                     self.clip_val.data.fill_(self.boundary)
                     self.custom_ratio = self.ratio
                     self.quant = dorefa.RoundSTE
+                    self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     assert self.num_levels <= 4, 'non-uniform target at 2bit, ter, bin'
                     assert self.half_range or self.num_levels == 3, 'Full range quantization for activation supports ternary only'
                     for i in range(self.num_levels-1):
@@ -236,6 +237,7 @@ class quantization(nn.Module):
                     self.choice = 'lsq'
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
                     self.quant = dorefa.RoundSTE
+                    self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.custom_ratio = self.ratio
                     assert self.num_levels == 3, 'non-uniform quantization for weight targets at ter'
                     for i in range(self.num_levels-1):
@@ -461,25 +463,25 @@ class quantization(nn.Module):
                     x = x.reshape(b, self.quant_group, 1, -1)
                     if self.half_range:
                         y1 = x * self.alpha0
-                        y1 = torch.clamp(y1, min=0, max=1)
+                        y1 = self.clamp(y1, min=0, max=1)
                         y1 = self.quant.apply(y1, self.custom_ratio)
                         y = y1
                         if self.num_levels >= 3:
                             y2 = (x - 1.0/self.alpha0) * self.alpha1
-                            y2 = torch.clamp(y2, min=0, max=1)
+                            y2 = self.clamp(y2, min=0, max=1)
                             y2 = self.quant.apply(y2, self.custom_ratio)
                             y = y + y2
                         if self.num_levels == 4:
                             y3 = (x - (1.0/self.alpha0 + 1.0/self.alpha1)) * self.alpha2
-                            y3 = torch.clamp(y3, min=0, max=1)
+                            y3 = self.clamp(y3, min=0, max=1)
                             y3 = self.quant.apply(y3, self.custom_ratio)
                             y =  y + y3
                     else:
                         y1 = x * self.alpha0
-                        y1 = torch.clamp(y1, min=-1, max=0)
+                        y1 = self.clamp(y1, min=-1, max=0)
                         y1 = self.quant.apply(y1, self.custom_ratio)
                         y2 = x * self.alpha1
-                        y2 = torch.clamp(y2, min=0, max=1)
+                        y2 = self.clamp(y2, min=0, max=1)
                         y2 = self.quant.apply(y2, self.custom_ratio)
                         y = y1 + y2
                     if 'closed_form' in self.args.keyword or '{}_closed_form'.format(self.tag) in self.args.keyword:
@@ -513,10 +515,10 @@ class quantization(nn.Module):
                     c1, c2, kh, kw = x.shape
                     x = x.reshape(self.quant_group, -1, kh, kw)
                     y1 = x * self.alpha0
-                    y1 = torch.clamp(y1, min=-1, max=0)
+                    y1 = self.clamp(y1, min=-1, max=0)
                     y1 = self.quant.apply(y1, self.custom_ratio)
                     y2 = x * self.alpha1
-                    y2 = torch.clamp(y2, min=0, max=1)
+                    y2 = self.clamp(y2, min=0, max=1)
                     y2 = self.quant.apply(y2, self.custom_ratio)
                     y = y1 + y2
                     y = y.reshape(c1, c2, kh, kw)
