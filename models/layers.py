@@ -78,6 +78,20 @@ class StaticBatchNorm2d(nn.Module):
         bias = bias.reshape(1, -1, 1, 1)
         return x * scale + bias
 
+class ReverseBatchNorm2d(nn.BatchNorm2d):
+    def __init__(self, num_features, eps=1e-5, affine=True):
+        super().__init__(num_features, eps=eps, affine=False)
+        assert affine, "Affine should be True for ReverseBatchNorm2d"
+        self.weight = nn.Parameter(torch.ones(num_features), requires_grad=True)
+        self.bias = nn.Parameter(torch.zeros(num_features), requires_grad=True)
+
+    def forward(self, x):
+        scale = self.weight.reshape(1, -1, 1, 1)
+        bias = self.bias.reshape(1, -1, 1, 1)
+        x = x * scale + bias
+        x = super(ReverseBatchNorm2d, self).forward(x)
+        return x
+
 def norm(channel, args=None, feature_stride=None):
     keyword = None
     if args is not None:
@@ -95,6 +109,9 @@ def norm(channel, args=None, feature_stride=None):
 
     if "freeze-bn" in keyword:
         return FrozenBatchNorm2d(channel)
+
+    if "reverse-bn" in keyword:
+        return ReverseBatchNorm2d(channel)
 
     return nn.BatchNorm2d(channel)
 
