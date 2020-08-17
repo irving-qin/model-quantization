@@ -181,25 +181,39 @@ class quantization(nn.Module):
                     'scale-element': self.scale / np.sqrt(self.nElements),
                     }[self.grad_scale]
             self.logger.info('update %s_grad_scale %f, nElements: %d' % (self.tag, self.grad_factor, self.nElements))
-            if self.tag in ['fm', 'ot'] and self.quant_group != 1:
-                self.logger.warning("quant_group is advised to be 1 for feature map quantization")
+            #if self.tag in ['fm', 'ot'] and self.quant_group != 1:
+            #    self.logger.warning("quant_group is advised to be 1 for feature map quantization")
             if self.tag == 'fm':
                 if 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
-                    self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
+                    if self.quant_group == 1:
+                        self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
+                    else:
+                        self.clip_val = nn.Parameter(torch.zeros(1, self.quant_group, 1, 1))
+                    self.clip_val.data.fill_(self.boundary)
                     self.quant = dorefa.LSQ
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
                 elif 'non-uniform' in self.args.keyword or 'fm_non-uniform' in self.args.keyword:
-                    self.clip_val = nn.Parameter(torch.Tensor([self.boundary]), requires_grad = False)
+                    if self.quant_group == 1:
+                        self.clip_val = nn.Parameter(torch.Tensor([self.boundary]), requires_grad = False)
+                    else:
+                        self.clip_val = nn.Parameter(torch.zeros(1, self.quant_group, 1, 1), requires_grad = False)
+                    self.clip_val.data.fill_(self.boundary)
                     self.custom_ratio = self.ratio
                     self.quant = dorefa.RoundSTE
+                    self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     assert self.num_levels <= 4, 'non-uniform target at 2bit, ter, bin'
                     assert self.half_range or self.num_levels == 3, 'Full range quantization for activation supports ternary only'
                     for i in range(self.num_levels-1):
-                        setattr(self, "alpha%d" % i, nn.Parameter(torch.ones(1)))
+                        if self.quant_group == 1:
+                            setattr(self, "alpha%d" % i, nn.Parameter(torch.ones(1)))
+                        else:
+                            setattr(self, "alpha%d" % i, nn.Parameter(torch.ones(1, self.quant_group, 1, 1)))
                         getattr(self, "alpha%d" % i).data.fill_(self.scale / self.boundary)
                     self.choice = 'non-uniform'
                     if 'closed_form' in self.args.keyword or 'fm_closed_form' in self.args.keyword:
+                        if self.quant_group != 1:
+                            raise RuntimeError("function for verified")
                         self.basis = nn.Parameter(torch.ones (1), requires_grad=False)
                         self.auxil = nn.Parameter(torch.zeros(1), requires_grad=False)
                         self.choice = self.choice + '-with-closed_form'
@@ -223,6 +237,7 @@ class quantization(nn.Module):
                     self.choice = 'lsq'
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
                     self.quant = dorefa.RoundSTE
+                    self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.custom_ratio = self.ratio
                     assert self.num_levels == 3, 'non-uniform quantization for weight targets at ter'
                     for i in range(self.num_levels-1):
@@ -241,7 +256,11 @@ class quantization(nn.Module):
                     self.choice = self.choice + '-with-gamma'
             elif self.tag == 'ot':
                 if 'lsq' in self.args.keyword or 'ot_lsq' in self.args.keyword:
-                    self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
+                    if self.quant_group == 1:
+                        self.clip_val = nn.Parameter(torch.Tensor([self.boundary]))
+                    else:
+                        self.clip_val = nn.Parameter(torch.zeros(1, self.quant_group, 1, 1))
+                    self.clip_val.data.fill_(self.boundary)
                     self.quant = dorefa.LSQ
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
@@ -440,27 +459,29 @@ class quantization(nn.Module):
                         y = y * 2.0 - 1.0
                         y = y * clip_val
                 elif 'non-uniform' in self.args.keyword or '{}_non-uniform'.format(self.tag) in self.args.keyword:
+                    b, c, h, w = x.shape
+                    x = x.reshape(b, self.quant_group, 1, -1)
                     if self.half_range:
                         y1 = x * self.alpha0
-                        y1 = torch.clamp(y1, min=0, max=1)
+                        y1 = self.clamp(y1, min=0, max=1)
                         y1 = self.quant.apply(y1, self.custom_ratio)
                         y = y1
                         if self.num_levels >= 3:
                             y2 = (x - 1.0/self.alpha0) * self.alpha1
-                            y2 = torch.clamp(y2, min=0, max=1)
+                            y2 = self.clamp(y2, min=0, max=1)
                             y2 = self.quant.apply(y2, self.custom_ratio)
                             y = y + y2
                         if self.num_levels == 4:
                             y3 = (x - (1.0/self.alpha0 + 1.0/self.alpha1)) * self.alpha2
-                            y3 = torch.clamp(y3, min=0, max=1)
+                            y3 = self.clamp(y3, min=0, max=1)
                             y3 = self.quant.apply(y3, self.custom_ratio)
                             y =  y + y3
                     else:
                         y1 = x * self.alpha0
-                        y1 = torch.clamp(y1, min=-1, max=0)
+                        y1 = self.clamp(y1, min=-1, max=0)
                         y1 = self.quant.apply(y1, self.custom_ratio)
                         y2 = x * self.alpha1
-                        y2 = torch.clamp(y2, min=0, max=1)
+                        y2 = self.clamp(y2, min=0, max=1)
                         y2 = self.quant.apply(y2, self.custom_ratio)
                         y = y1 + y2
                     if 'closed_form' in self.args.keyword or '{}_closed_form'.format(self.tag) in self.args.keyword:
@@ -468,6 +489,7 @@ class quantization(nn.Module):
                             self.auxil.data = dorefa.non_uniform_scale(x.detach(), y.detach())
                             self.update_bias(self.auxil.data)
                         y = y * self.basis
+                    y = y.reshape(b, c, h, w)
                 elif 'pact' in self.args.keyword:
                     y = torch.clamp(x, min=0) # might not necessary when ReLU is applied in the network
                     y = torch.where(y < self.clip_val, y, self.clip_val)
@@ -490,13 +512,16 @@ class quantization(nn.Module):
                     y = y * 2.0 - 1.0
                     y = y * clip_val
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
+                    c1, c2, kh, kw = x.shape
+                    x = x.reshape(self.quant_group, -1, kh, kw)
                     y1 = x * self.alpha0
-                    y1 = torch.clamp(y1, min=-1, max=0)
+                    y1 = self.clamp(y1, min=-1, max=0)
                     y1 = self.quant.apply(y1, self.custom_ratio)
                     y2 = x * self.alpha1
-                    y2 = torch.clamp(y2, min=0, max=1)
+                    y2 = self.clamp(y2, min=0, max=1)
                     y2 = self.quant.apply(y2, self.custom_ratio)
                     y = y1 + y2
+                    y = y.reshape(c1, c2, kh, kw)
                 elif 'wt_bin' in self.args.keyword and self.num_levels == 2:
                     y = self.quant.apply(x, self.adaptive)
                 else:

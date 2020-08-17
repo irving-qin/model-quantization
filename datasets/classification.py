@@ -139,8 +139,7 @@ def imagenet_loader(split, args=None, cfg=None):
             dataset = None
 
     ImageFile.LOAD_TRUNCATED_IMAGES = True
-    dataset = datasets.folder.ImageFolder(root=os.path.join(args.root, split), transform=transform) #,
-    #        loader=fix_loader)
+    dataset = datasets.folder.ImageFolder(root=os.path.join(args.root, split), transform=transform, loader=fix_loader)
     sampler = None
     collate_fn = None
     if args.distributed:
