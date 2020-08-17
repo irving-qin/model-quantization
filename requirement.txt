@@ -7,4 +7,6 @@ gpuinfo
 
 #
 IPython
+opencv-python
+scipy
 
