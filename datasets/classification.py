@@ -60,7 +60,7 @@ def pil_loader(path):
         try:
             img = Image.open(f)
             return img.convert('RGB')
-        except (IOError, OSError) as e:
+        except IOError as e:
             log_file = 'debug-image-%d.txt' % os.getpid()
             if os.path.isfile(log_file):
                 log_file = open(log_file, 'a')
