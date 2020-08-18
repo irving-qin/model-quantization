@@ -90,7 +90,7 @@ class quantization(nn.Module):
             batch_size = getattr(args, 'batch_size', 1)
             batch_size = getattr(args, 'batch_size_per_machine', batch_size)
             self.nElements *= batch_size
-            if feature_stride is not None and hasattr(args, 'input_size'):
+            if feature_stride is not None and hasattr(args, 'input_size') and args.input_size is not None:
                 self.nElements *= (args.input_size // feature_stride)
                 self.nElements *= (args.input_size // feature_stride)
 
