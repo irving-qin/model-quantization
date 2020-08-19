@@ -90,7 +90,7 @@ class quantization(nn.Module):
             batch_size = getattr(args, 'batch_size', 1)
             batch_size = getattr(args, 'batch_size_per_machine', batch_size)
             self.nElements *= batch_size
-            if feature_stride is not None and hasattr(args, 'input_size'):
+            if feature_stride is not None and hasattr(args, 'input_size') and args.input_size is not None:
                 self.nElements *= (args.input_size // feature_stride)
                 self.nElements *= (args.input_size // feature_stride)
 
@@ -170,6 +170,8 @@ class quantization(nn.Module):
         if 'dorefa' in self.args.keyword or 'pact' in self.args.keyword:
             self.method = 'dorefa'
             self.gamma = 1
+            assert 'gamma' not in self.args.keyword, "Keyword corrupted~"
+
             if self.boundary is None:
                 self.boundary = 1.0
                 self.logger.info('update %s_boundary %r' % (self.tag, self.boundary))
@@ -181,8 +183,7 @@ class quantization(nn.Module):
                     'scale-element': self.scale / np.sqrt(self.nElements),
                     }[self.grad_scale]
             self.logger.info('update %s_grad_scale %f, nElements: %d' % (self.tag, self.grad_factor, self.nElements))
-            #if self.tag in ['fm', 'ot'] and self.quant_group != 1:
-            #    self.logger.warning("quant_group is advised to be 1 for feature map quantization")
+
             if self.tag == 'fm':
                 if 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
                     if self.quant_group == 1:
@@ -505,12 +506,15 @@ class quantization(nn.Module):
                     x = (x - mean) / (std + __EPS__)
                 if 'lsq' in self.args.keyword or 'wt_lsq' in self.args.keyword:
                     clip_val = dorefa.GradientScale(self.clip_val, self.grad_factor)
+                    c1, c2, kh, kw = x.shape
+                    x = x.reshape(self.quant_group, -1, kh, kw)
                     y = x / clip_val
                     y = self.clamp(y, min=-1, max=1)
                     y = (y + 1.0) / 2.0
                     y = self.quant.apply(y, self.num_levels - 1)
                     y = y * 2.0 - 1.0
                     y = y * clip_val
+                    y = y.reshape(c1, c2, kh, kw)
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
                     c1, c2, kh, kw = x.shape
                     x = x.reshape(self.quant_group, -1, kh, kw)

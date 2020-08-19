@@ -45,6 +45,9 @@ def get_parser(parser=None):
     if parser is None:
         parser = utils.get_parser()
 
+    parser.add_argument('--num_classes', default=None, type=int)
+    parser.add_argument('--input_size', default=None, type=int)
+
     # custom parameters for quantization related projects
     parser.add_argument('--base', default=1, type=int, help='base used in GroupNet') 
     parser.add_argument('--width_alpha', default=1.0, type=float, help='channel alpha')

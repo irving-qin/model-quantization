@@ -27,6 +27,9 @@ class BasicBlock(nn.Module):
         if self.addition_skip and args.verbose:
             logging.info("warning: add addition skip, not the origin resnet")
 
+        if 'debug' in self.args.keyword:
+            logging.info("feature stride {}".format(feature_stride))
+
         for i in range(2):
             setattr(self, 'relu%d' % (i+1), nn.ModuleList([actv(args) for j in range(args.base)]))
         if 'fix' in self.args.keyword and ('cbas' in self.args.keyword or 'cbsa' in self.args.keyword):
@@ -131,6 +134,13 @@ class BasicBlock(nn.Module):
                 logging.warning("extra pad of {} for Prone is added".format(extra_padding))
         # Prone network off
 
+        # force padding
+        if "force_padding" in args.keyword:
+            resolution = args.input_size // feature_stride
+            if stride != 1 and resolution == 14:
+                extra_padding = 1
+                logging.warning("force extra padding of {} is added".format(extra_padding))
+
         # downsample branch
         self.enable_skip = stride != 1 or inplanes != planes
         real_skip = 'real_skip' in args.keyword
@@ -199,7 +209,6 @@ class BasicBlock(nn.Module):
 
 
     def forward(self, x):
-
         if self.shrink is not None:
             x = self.shrink(x)
 
@@ -452,6 +461,8 @@ class ResNet(nn.Module):
             channel_scale = 2 ** i
             outplanes = self.input_channel * channel_scale
             stride = 1 if i == 0 else 2
+            if layers[i] == 0:
+                continue
             setattr(self, 'layer%d' % index, self._make_layer(block, outplanes, layers[i], stride=stride, feature_stride=self.feature_stride))
             self.feature_stride = self.feature_stride * stride
 
@@ -567,6 +578,8 @@ class ResNet(nn.Module):
 
         for i in range(self.layer_count):
             layer = 'layer%d' % (i + 1)
+            if not hasattr(self, layer):
+                continue
             x = getattr(self, layer)(x)
             if hasattr(self, '_out_features') and layer in self._out_features:
                 outputs[layer] = x
@@ -609,6 +622,10 @@ def resnet32(args):
 
 def resnet34(args):
     model = ResNet(BasicBlock, [3, 4, 6, 3], args)
+    return model
+
+def resnet34_(args):
+    model = ResNet(BasicBlock, [0, 2, 2, 2, 2, 2, 2, 2, 2], args)
     return model
 
 def resnet44(args):

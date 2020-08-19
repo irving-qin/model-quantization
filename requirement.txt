@@ -12,3 +12,6 @@ matplotlib
 imageio
 tqdm
 scikit-image
+opencv-python
+scipy
+
