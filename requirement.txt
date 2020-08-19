@@ -1,10 +1,14 @@
-ninja
-torch
-torchvision
+#
 pandas
 tensorboardX
 gpuinfo
+ninja
+torch
+torchvision
 
 #
 IPython
-
+matplotlib
+imageio
+tqdm
+scikit-image
