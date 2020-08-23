@@ -1,7 +1,10 @@
 import os, sys, glob, argparse
 import logging
+import types
 from collections import OrderedDict
+
 import torch
+import torch.nn.functional as F
 
 import utils
 import models
@@ -59,6 +62,35 @@ def export_onnx(args):
             keep_initializers_as_inputs=True
             )
 
+def inference(args):
+    from models.quant import custom_conv
+    def init(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=False,
+            args=None, force_fp=False, feature_stride=1):
+        super(custom_conv, self).__init__(in_channels, out_channels, kernel_size, stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias)
+        self.args = args
+        self.force_fp = True
+
+    custom_conv.__init__ = init
+
+    model_name = args.model
+    if model_name in models.model_zoo:
+        model, args = models.get_model(args)
+    else:
+        print("model(%s) not support, available models: %r" % (model_name, models.model_zoo))
+        return
+
+    def forward(self, x):
+        print(x.shape, self.weight.shape, self.kernel_size, self.stride, self.padding, self.dilation, self.groups)
+        output = F.conv2d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
+        return output
+
+    for m in model.modules():
+        if isinstance(m, torch.nn.Conv2d):
+            m.forward = types.MethodType(forward, m)
+
+    input = torch.rand(1, 3, args.input_size, args.input_size)
+    model.forward(input)
+
 def get_parameter():
     parser = entry.get_parser()
     parser.add_argument('--old', type=str, default='')
@@ -87,6 +119,9 @@ def main():
 
     if 'export_onnx' in config.keys():
         export_onnx(args)
+
+    if 'inference' in config.keys():
+        inference(args)
 
     if 'verbose' in config.keys():
         if torch.cuda.is_available():
