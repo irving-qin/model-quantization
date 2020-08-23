@@ -198,6 +198,8 @@ def main(args=None):
         logging.error("model(%s) not support, available models: %r" % (model_name, models.model_zoo))
         return
     criterion = nn.CrossEntropyLoss()
+    if 'label-smooth' in args.keyword:
+        criterion_smooth = utils.CrossEntropyLabelSmooth(args.num_classes, args.label_smooth)
 
     utils.check_folder(args.weights_dir)
     args.weights_dir = os.path.join(args.weights_dir, model_name)
@@ -262,6 +264,13 @@ def main(args=None):
         else:
             model = model.cuda()
         criterion = criterion.cuda()
+        if 'label-smooth' in args.keyword:
+            criterion_smooth = criterion_smooth.cuda()
+
+    if 'label-smooth' in args.keyword:
+        train_criterion = criterion_smooth
+    else:
+        train_criterion = criterion
 
     # move after to_cuda() for speedup
     if args.re_init and not args.resume:
@@ -441,7 +450,7 @@ def main(args=None):
         is_best = top1 > best_acc
         if 'lr-test' not in args.keyword: # otherwise only print the learning rate in each epoch
             # training
-            loss = train(train_loader, model, criterion, optimizer, args, scheduler, epoch, lr)
+            loss = train(train_loader, model, train_criterion, optimizer, args, scheduler, epoch, lr)
             #for i in range(train_length):
             #  scheduler.step()
             logging.info('[epoch %d]: train_loss %.3f' % (epoch, loss))
