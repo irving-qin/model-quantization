@@ -92,7 +92,7 @@ class ReverseBatchNorm2d(nn.BatchNorm2d):
         x = super(ReverseBatchNorm2d, self).forward(x)
         return x
 
-def norm(channel, args=None, feature_stride=None):
+def norm(channel, args=None, feature_stride=None, affine=False):
     keyword = None
     if args is not None:
         keyword = getattr(args, "keyword", None)
@@ -113,6 +113,9 @@ def norm(channel, args=None, feature_stride=None):
     if "reverse-bn" in keyword:
         return ReverseBatchNorm2d(channel)
 
+    if "instance-norm" in keyword:
+        return nn.InstanceNorm2d(channel, affine=affine)
+
     return nn.BatchNorm2d(channel)
 
 class ShiftReLU(nn.ReLU):
@@ -126,7 +129,7 @@ class ShiftReLU(nn.ReLU):
         return x
 
 
-def actv(args=None):
+def actv(args=None, negative_slope=0.01):
     keyword = None
     if args is not None:
         keyword = getattr(args, "keyword", None)
@@ -145,6 +148,9 @@ def actv(args=None):
 
     if 'ReLU6' in keyword:
         return nn.ReLU6(inplace=True)
+
+    if 'LReLU' in keyword:
+        return nn.LeakyReLU(negative_slope=negative_slope, inplace=True)
 
     return nn.ReLU(inplace=True)
 
