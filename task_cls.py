@@ -122,6 +122,9 @@ def get_parser(parser=None):
     parser.add_argument('--probe_index', default=[], type=int, nargs='+')
     parser.add_argument('--probe_list', default='', type=str)
 
+    # label-smooth
+    parser.add_argument('--label_smooth', type=float, default=0.1, help='label smoothing')
+
     # specific custom learning rate or weight decay for certain parameters
     parser.add_argument('--custom_decay_list', default='', type=str)
     parser.add_argument('--custom_decay', default=0.02, type=float)
