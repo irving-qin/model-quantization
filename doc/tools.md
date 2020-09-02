@@ -16,6 +16,9 @@ The following commands can be used to browse items in the pretrained model and r
 # download pretrained model by
 # wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 python tools.py --keyword verbose --verbose_list all --old [weights/pytorch-resnet50/resnet50-19c8e357.pth]
+
+# save to name into text
+python tools.py --keyword verbose --verbose_list all --old [weights/pytorch-resnet50/resnet50-19c8e357.pth] | awk '{ print $1}' | tee name_list.txt
 ```
 
 2. renaming parameter
