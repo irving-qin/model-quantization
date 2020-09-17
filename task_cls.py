@@ -170,6 +170,7 @@ def main(args=None):
         log_suffix = model_arch + '-' + args.case
     utils.setup_logging(os.path.join(args.log_dir, log_suffix + '.txt'), resume=args.resume)
 
+    logging.info("current folder: %r", os.getcwd())
     logging.info("alqnet plugins: %r", plugin_enable)
     logging.info("apex available: %r", apex_enable)
     logging.info("dali available: %r", dali_enable)
