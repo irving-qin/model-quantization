@@ -142,7 +142,7 @@ class BasicBlock(nn.Module):
                 logging.warning("force extra padding of {} is added".format(extra_padding))
 
         # downsample branch
-        self.enable_skip = stride != 1 or inplanes != planes
+        self.enable_skip = stride != 1 or inplanes != planes or 'identify_norm' in args.keyword
         real_skip = 'real_skip' in args.keyword
         downsample = []
         if stride != 1:
@@ -167,11 +167,13 @@ class BasicBlock(nn.Module):
                 downsample.append(norm(planes, args, feature_stride=feature_stride*stride))
                 if 'fix' not in args.keyword:
                     downsample.append(actv(args))
+        elif 'identify_norm' in args.keyword:
+            downsample.append(norm(planes, args))
         if 'singleconv' in args.keyword: # pytorch official branch employ single convolution layer
             for i, n in enumerate(downsample):
                 if isinstance(n, nn.AvgPool2d):
                     downsample[i] = nn.Sequential()
-                if isinstance(n, nn.Conv2d):
+                if isinstance(n, nn.Conv2d) and inplanes != planes:
                     downsample[i] = qconv1x1(inplanes, planes, stride=stride, padding=extra_padding, args=args, force_fp=real_skip)
         if 'DCHR' in args.keyword: # double channel and halve resolution
             if inplanes != planes:
