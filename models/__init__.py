@@ -15,6 +15,7 @@ try:
     #from .nin_ import nin as nin_
     
     from .mobilenet import mobilenetv2, mobilenetv1
+    from .qmobilenetv1 import QMobileNetV1 as qmobilenetv1
 
     #from .densenet import densenet121
     #from .nasnet import nasnet
@@ -49,6 +50,7 @@ model_zoo = [
   'resnet101',
   'mobilenetv1',
   'mobilenetv2',
+  'qmobilenetv1',
   'densenet121',
   'nasnet',
   'squeezenet',
@@ -129,6 +131,8 @@ def get_model(args):
         return mobilenetv1(args), args
     elif args.model == 'mobilenetv2':
         return mobilenetv2(args), args
+    elif args.model == 'qmobilenetv1':
+        return qmobilenetv1(args=args), args
 
     elif args.model == 'vgg_small':
         return vgg_small(args), args
