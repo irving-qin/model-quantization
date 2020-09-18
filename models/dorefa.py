@@ -26,6 +26,8 @@ class LSQ(torch.autograd.Function):
 
 ##############################################################
 def GradientScale(x, scale):
+    if int(scale) == 1:
+        return x
     yGrad = x * scale
     return (x - yGrad).detach() + yGrad
 

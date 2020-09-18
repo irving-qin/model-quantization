@@ -446,7 +446,7 @@ class quantization(nn.Module):
         if self.method == 'dorefa':
             if self.tag in ['fm', 'ot']:
                 if 'lsq' in self.args.keyword or '{}_lsq'.format(self.tag) in self.args.keyword:
-                    clip_val = dorefa.GradientScale(self.clip_val, self.grad_factor)
+                    clip_val = dorefa.GradientScale(self.clip_val.abs(), self.grad_factor)
                     if self.half_range:
                         y = x / clip_val
                         y = self.clamp(y, min=0, max=1)
@@ -505,7 +505,7 @@ class quantization(nn.Module):
                     std, mean = torch.std_mean(x.data.reshape(self.norm_group, -1, 1, 1, 1), 1)
                     x = (x - mean) / (std + __EPS__)
                 if 'lsq' in self.args.keyword or 'wt_lsq' in self.args.keyword:
-                    clip_val = dorefa.GradientScale(self.clip_val, self.grad_factor)
+                    clip_val = dorefa.GradientScale(self.clip_val.abs(), self.grad_factor)
                     c1, c2, kh, kw = x.shape
                     x = x.reshape(self.quant_group, -1, kh, kw)
                     y = x / clip_val
