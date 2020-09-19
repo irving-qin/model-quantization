@@ -31,7 +31,7 @@ def qconv3x3(in_planes, out_planes, stride=1, bits_weights=32, bits_activations=
     )
 
 
-def conv1x1(in_planes, out_planes, bits_weights=32, bits_activations=32):
+def conv1x1(in_planes, out_planes, bits_weights=32, bits_activations=32, kernel_size=1, args=None):
     "1x1 convolution"
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, bias=False)
 
@@ -47,7 +47,7 @@ def qconv1x1(in_planes, out_planes, bits_weights=32, bits_activations=32, kernel
     )
 
 
-def dwconv3x3(in_planes, out_planes, stride=1, bits_weights=32, bits_activations=32):
+def dwconv3x3(in_planes, out_planes, stride=1, bits_weights=32, bits_activations=32, kernel_size=3, padding=1, groups=1, args=None):
     "3x3 depth wise convolution"
     return nn.Conv2d(
         in_planes,
@@ -86,6 +86,11 @@ class QMobileNetV1(nn.Module):
         super(QMobileNetV1, self).__init__()
 
         self.args = args
+        if self.args is not None and hasattr(self.args, 'fm_bit') and hasattr(self.args, 'fm_enable'):
+            if self.args.fm_enable:
+                bits_activations = self.args.fm_bit
+            if self.args.wt_enable:
+                bits_weights = self.args.wt_bit
         # define network structure
 
         self.layer_width = np.array([32, 64, 128, 256, 512, 1024])
@@ -119,7 +124,10 @@ class QMobileNetV1(nn.Module):
     def _make_layer(self, bits_weights=32, bits_activations=32, quantize_first_last=False):
         if self.args is not None and hasattr(self.args, 'keyword') and 'lsq' in self.args.keyword:
             qdwconv3x3 = custom_conv
-            qonv1x1 = custom_conv
+            qconv1x1 = custom_conv
+        elif int(bits_weights) == 32 and int(bits_activations) == 32:
+            qdwconv3x3 = dwconv3x3
+            qconv1x1 = conv1x1
 
         if quantize_first_last:
             layer_list = [
