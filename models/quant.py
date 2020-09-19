@@ -463,25 +463,30 @@ class quantization(nn.Module):
                     b, c, h, w = x.shape
                     x = x.reshape(b, self.quant_group, 1, -1)
                     if self.half_range:
-                        y1 = x * self.alpha0
+                        alpha0 = self.alpha0.abs()
+                        y1 = x * alpha0
                         y1 = self.clamp(y1, min=0, max=1)
                         y1 = self.quant.apply(y1, self.custom_ratio)
                         y = y1
                         if self.num_levels >= 3:
-                            y2 = (x - 1.0/self.alpha0) * self.alpha1
+                            alpha1 = self.alpha1.abs()
+                            y2 = (x - 1.0/alpha0) * alpha1
                             y2 = self.clamp(y2, min=0, max=1)
                             y2 = self.quant.apply(y2, self.custom_ratio)
                             y = y + y2
                         if self.num_levels == 4:
-                            y3 = (x - (1.0/self.alpha0 + 1.0/self.alpha1)) * self.alpha2
+                            alpha2 = self.alpha2.abs()
+                            y3 = (x - (1.0/alpha0 + 1.0/alpha1)) * alpha2
                             y3 = self.clamp(y3, min=0, max=1)
                             y3 = self.quant.apply(y3, self.custom_ratio)
                             y =  y + y3
                     else:
-                        y1 = x * self.alpha0
+                        alpha0 = self.alpha0.abs()
+                        alpha1 = self.alpha1.abs()
+                        y1 = x * alpha0
                         y1 = self.clamp(y1, min=-1, max=0)
                         y1 = self.quant.apply(y1, self.custom_ratio)
-                        y2 = x * self.alpha1
+                        y2 = x * alpha1
                         y2 = self.clamp(y2, min=0, max=1)
                         y2 = self.quant.apply(y2, self.custom_ratio)
                         y = y1 + y2
@@ -518,10 +523,12 @@ class quantization(nn.Module):
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
                     c1, c2, kh, kw = x.shape
                     x = x.reshape(self.quant_group, -1, kh, kw)
-                    y1 = x * self.alpha0
+                    alpha0 = self.alpha0.abs()
+                    alpha1 = self.alpha1.abs()
+                    y1 = x * alpha0
                     y1 = self.clamp(y1, min=-1, max=0)
                     y1 = self.quant.apply(y1, self.custom_ratio)
-                    y2 = x * self.alpha1
+                    y2 = x * alpha1
                     y2 = self.clamp(y2, min=0, max=1)
                     y2 = self.quant.apply(y2, self.custom_ratio)
                     y = y1 + y2
