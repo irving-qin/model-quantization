@@ -123,11 +123,14 @@ class QMobileNetV1(nn.Module):
 
     def _make_layer(self, bits_weights=32, bits_activations=32, quantize_first_last=False):
         if self.args is not None and hasattr(self.args, 'keyword') and 'lsq' in self.args.keyword:
-            qdwconv3x3 = custom_conv
-            qconv1x1 = custom_conv
+            qdepth = custom_conv
+            qpoint = custom_conv
         elif int(bits_weights) == 32 and int(bits_activations) == 32:
-            qdwconv3x3 = dwconv3x3
-            qconv1x1 = conv1x1
+            qdepth = dwconv3x3
+            qpoint = conv1x1
+        else:
+            qdepth = qdwconv3x3
+            qpoint = qconv1x1
 
         if quantize_first_last:
             layer_list = [
@@ -153,7 +156,7 @@ class QMobileNetV1(nn.Module):
                 else:
                     stride = 1
                 layer_list.append(
-                    qdwconv3x3(
+                    qdepth(
                     #custom_conv(
                         in_planes,
                         in_planes,
@@ -169,7 +172,7 @@ class QMobileNetV1(nn.Module):
                 layer_list.append(nn.BatchNorm2d(in_planes))
                 layer_list.append(nn.ReLU(inplace=True))
                 layer_list.append(
-                    qconv1x1(
+                    qpoint(
                     #custom_conv(
                         in_planes,
                         out_planes,

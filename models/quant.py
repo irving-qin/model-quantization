@@ -579,7 +579,7 @@ class quantization(nn.Module):
 
 class custom_conv(nn.Conv2d):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=False,
-            args=None, force_fp=False, feature_stride=1):
+            args=None, force_fp=False, feature_stride=1, bits_weights=32, bits_activations=32):
         super(custom_conv, self).__init__(in_channels, out_channels, kernel_size, stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias)
         self.args = args
         self.force_fp = force_fp
