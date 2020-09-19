@@ -122,7 +122,7 @@ class QMobileNetV1(nn.Module):
                 m.bias.data.zero_()
 
     def _make_layer(self, bits_weights=32, bits_activations=32, quantize_first_last=False):
-        if self.args is not None and hasattr(self.args, 'keyword') and 'lsq' in self.args.keyword:
+        if self.args is not None and hasattr(self.args, 'keyword') and 'dorefa' in self.args.keyword:
             qdepth = custom_conv
             qpoint = custom_conv
         elif int(bits_weights) == 32 and int(bits_activations) == 32:
