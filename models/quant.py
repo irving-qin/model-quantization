@@ -374,7 +374,10 @@ class quantization(nn.Module):
             if self.method == 'dorefa' and data is not None:
                 max_value = data.abs().max().item()
                 if hasattr(self, 'clip_val') and isinstance(self.clip_val, torch.Tensor):
+                    if self.correlate > 0:
+                        max_value = max_value * self.correlate
                     self.clip_val.fill_(max_value)
+                    self.logger.info('update %s clip_val for index %d to %r' % (self.tag, self.index, self.clip_val))
         return
 
     def init_based_on_pretrain(self, weight=None):
