@@ -372,7 +372,9 @@ class quantization(nn.Module):
 
         with torch.no_grad():
             if self.method == 'dorefa' and data is not None:
-                pass
+                max_value = data.abs().max().item()
+                if hasattr(self, 'clip_val') and isinstance(self.clip_val, torch.Tensor):
+                    self.clip_val.fill_(max_value)
         return
 
     def init_based_on_pretrain(self, weight=None):
@@ -496,6 +498,7 @@ class quantization(nn.Module):
                             self.update_bias(self.auxil.data)
                         y = y * self.basis
                     y = y.reshape(b, c, h, w)
+                    x = x.reshape(b, c, h, w)
                 elif 'pact' in self.args.keyword:
                     y = torch.clamp(x, min=0) # might not necessary when ReLU is applied in the network
                     y = torch.where(y < self.clip_val, y, self.clip_val)
@@ -520,6 +523,7 @@ class quantization(nn.Module):
                     y = y * 2.0 - 1.0
                     y = y * clip_val
                     y = y.reshape(c1, c2, kh, kw)
+                    x = x.reshape(c1, c2, kh, kw)
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
                     c1, c2, kh, kw = x.shape
                     x = x.reshape(self.quant_group, -1, kh, kw)
@@ -533,6 +537,7 @@ class quantization(nn.Module):
                     y2 = self.quant.apply(y2, self.custom_ratio)
                     y = y1 + y2
                     y = y.reshape(c1, c2, kh, kw)
+                    x = x.reshape(c1, c2, kh, kw)
                 elif 'wt_bin' in self.args.keyword and self.num_levels == 2:
                     y = self.quant.apply(x, self.adaptive)
                 else:
