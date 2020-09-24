@@ -325,12 +325,13 @@ class quantization(nn.Module):
                                     v = float(v)
                                 
                                 if isinstance(getattr(self, k), torch.Tensor):
-                                    getattr(self, k).fill_(v)
+                                    with torch.no_grad():
+                                        getattr(self, k).fill_(float(v))
                                 else:
                                     setattr(self, "{}".format(k), v)
                                 self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, getattr(self, k, 'Non-Exist'), self.index))
                                 if self.enable:
-                                    assert hasattr(self, 'iteration'), "forcing quantize layer which cannot be is not supported"
+                                    assert hasattr(self, 'iteration'), "forcing to quantize layer which cannot be is not supported, likely error policy file"
 
         if not self.enable:
             return
