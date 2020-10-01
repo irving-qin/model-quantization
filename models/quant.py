@@ -98,10 +98,10 @@ class quantization(nn.Module):
             self.prox = 0
 
         self.iteration = nn.Parameter(torch.zeros(1), requires_grad=False)
-        self.learning_rate = 1
-        self.init_learning_rate = 1
+        self.level_num = nn.Parameter(torch.zeros(1), requires_grad=False)
         self.progressive = False
         self.init()
+        self.level_num.fill_(self.num_levels)
 
         self.logger.info("half_range({}), bit({}), num_levels({}), quant_group({}) boundary({}) scale({}) ratio({}) tag({})".format(
             self.half_range, self.bit, self.num_levels, self.quant_group, self.boundary, self.scale, self.ratio, self.tag))
@@ -367,6 +367,8 @@ class quantization(nn.Module):
                     num_level = 2**self.bit
                     self.logger.info('update %s_bit %r' % (self.tag, self.bit))
                 if num_level != self.num_levels:
+                    #if 'share_level' in parameters and parameters['share_level']:
+                    #    with
                     self.num_levels = num_level
                     self.logger.info('update %s_level %r' % (self.tag, self.num_levels))
 
@@ -462,13 +464,13 @@ class quantization(nn.Module):
                     if self.half_range:
                         y = x / clip_val
                         y = self.clamp(y, min=0, max=1)
-                        y = self.quant.apply(y, self.num_levels - 1)
+                        y = self.quant.apply(y, self.level_num.item() - 1)
                         y = y * clip_val
                     else:
                         y = x / clip_val
                         y = self.clamp(y, min=-1, max=1)
                         y = (y + 1.0) / 2.0
-                        y = self.quant.apply(y, self.num_levels - 1)
+                        y = self.quant.apply(y, self.level_num.item() - 1)
                         y = y * 2.0 - 1.0
                         y = y * clip_val
                 elif 'non-uniform' in self.args.keyword or '{}_non-uniform'.format(self.tag) in self.args.keyword:
@@ -529,7 +531,7 @@ class quantization(nn.Module):
                     y = x / clip_val
                     y = self.clamp(y, min=-1, max=1)
                     y = (y + 1.0) / 2.0
-                    y = self.quant.apply(y, self.num_levels - 1)
+                    y = self.quant.apply(y, self.level_num.item() - 1)
                     y = y * 2.0 - 1.0
                     y = y * clip_val
                     y = y.reshape(c1, c2, kh, kw)

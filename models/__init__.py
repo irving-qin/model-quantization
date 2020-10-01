@@ -9,10 +9,10 @@ try:
     from .resnet  import resnet101 as pytorch_resnet101
 
     #from .vgg import vgg16_bn as pytorch_vgg16bn
-    #from .vgg_small_ import vgg_small
+    from .vgg_small_ import vgg_small
     
     #from .alexnet_ import alexnet as alexnet_  # revise from XNOR-Net-PyTorch
-    #from .nin_ import nin as nin_
+    from .nin_ import nin as nin_
     
     from .mobilenet import mobilenetv2, mobilenetv1
     from .qmobilenetv1 import QMobileNetV1 as qmobilenetv1
@@ -138,7 +138,7 @@ def get_model(args):
         return vgg_small(args), args
 
     elif args.model == 'nin':
-        return nin_(args), args
+        return nin_(args=args), args
 
     elif args.model == 'pytorch-resnet18':
         model = pytorch_resnet18(pretrained=False, progress=True, args=args)

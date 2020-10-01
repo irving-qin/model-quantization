@@ -56,21 +56,22 @@ def fast_collate(batch):
 # for issue similar with https://github.com/python-pillow/Pillow/issues/1510
 def pil_loader(path):
     # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
-    with open(path, 'rb') as f:
-        try:
+    try:
+        with open(path, 'rb') as f:
             img = Image.open(f)
             return img.convert('RGB')
-        except IOError as e:
-            log_file = 'debug-image-%d.txt' % os.getpid()
-            if os.path.isfile(log_file):
-                log_file = open(log_file, 'a')
-            else:
-                log_file = open(log_file, 'w')
-            print("read image %s. Error: " % path, e, file=log_file)
-            log_file.close()
-            # fake image
-            img = Image.new('RGB', (256, 256))
-            return img
+    except IOError as e:
+        log_file = 'debug-image-%d.txt' % os.getpid()
+        if os.path.isfile(log_file):
+            log_file = open(log_file, 'a')
+        else:
+            log_file = open(log_file, 'w')
+        print("read image %s. Error: " % path, e, file=log_file)
+        log_file.close()
+        # fake image
+        raise RuntimeError("failed to read file %r" % path)
+        img = Image.new('RGB', (256, 256))
+        return img
 
 def accimage_loader(path):
     import accimage
