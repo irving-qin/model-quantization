@@ -106,8 +106,8 @@ class quantization(nn.Module):
         self.logger.info("half_range({}), bit({}), num_levels({}), quant_group({}) boundary({}) scale({}) ratio({}) tag({})".format(
             self.half_range, self.bit, self.num_levels, self.quant_group, self.boundary, self.scale, self.ratio, self.tag))
         if 'debug' in getattr(self.args, 'keyword', []):
-            self.logger.info("adaptive({}) grad_scale({}) grad_type({}) norm_group({})".format(
-                self.adaptive, self.grad_scale, self.grad_type, self.norm_group))
+            self.logger.info("adaptive({}) grad_scale({}) grad_type({}) norm_group({}) progressive({})".format(
+                self.adaptive, self.grad_scale, self.grad_type, self.norm_group, self.progressive))
 
     def __repr__(self):
         return self.__str__()
@@ -296,6 +296,7 @@ class quantization(nn.Module):
         #raise RuntimeError("Quantization method not provided %s" % self.args.keyword)
 
     def update_quantization(self, **parameters):
+        feedback = dict()
         index = self.index
         if 'index' in parameters:
             index =  parameters['index']
@@ -326,54 +327,33 @@ class quantization(nn.Module):
                                 
                                 if isinstance(getattr(self, k), torch.Tensor):
                                     with torch.no_grad():
+                                        if self.progressive:
+                                            if 'lsq' in self.args.keyword or '{}_lsq'.format(self.tag) in self.args.keyword:
+                                                if k in ['level_num']:
+                                                    #if hasattr(self, 'clip_val'):
+                                                    v = float(v)
+                                                    v = v if v > 0 else self.level_num.item() + v # if negative number provide, it indicates decreasing on current
+                                                    assert v > 1.9, "level_num should be at least 2"
+                                                    scale = (v - 1) / (self.level_num.item() - 1)
+                                                    self.clip_val.mul_(scale)
+                                                    self.logger.info('update {}_clip_val to {} for index {}'.format(self.tag, self.clip_val, self.index))
+                                                    # remember to patch the momentum in SGD optimizer. set it to zero or multiple by scale
+                                                    if 'reset_momentum_list' in feedback:
+                                                        feedback['reset_momentum_list'].append(self.clip_val)
+                                                    else:
+                                                        feedback['reset_momentum_list'] = [self.clip_val]
                                         getattr(self, k).fill_(float(v))
                                 else:
                                     setattr(self, "{}".format(k), v)
                                 self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, getattr(self, k, 'Non-Exist'), self.index))
                                 if self.enable:
-                                    assert hasattr(self, 'iteration'), "forcing to quantize layer which cannot be is not supported, likely error policy file"
+                                    assert hasattr(self, 'iteration'), "cannot enable quantization for current layer. Likely an error in policy file"
 
         if not self.enable:
-            return
+            return None
         else:
             assert self.method != 'none', "quantization enable but without specific method in layer(index:{}, tag:{})".format(self.index, self.tag)
-
-        if self.method == 'dorefa':
-            if 'progressive' in parameters:
-                self.progressive = parameters['progressive']
-                self.logger.info('update %s_progressive %r' % (self.tag, self.progressive))
-
-            if self.progressive:
-                bit = self.bit
-                num_level = self.num_levels
-                if self.tag == 'fm':
-                    if 'fm_bit' in parameters:
-                        bit = parameters['fm_bit']
-                    if 'fm_level' in parameters:
-                        num_level = parameters['fm_level']
-                elif self.tag == 'wt':
-                    if 'wt_bit' in parameters:
-                        bit = parameters['wt_bit']
-                    if 'wt_level' in parameters:
-                        num_level = parameters['wt_level']
-                elif self.tag == 'ot':
-                    if 'ot_bit' in parameters:
-                        bit = parameters['ot_bit']
-                    if 'ot_level' in parameters:
-                        num_level = parameters['ot_level']
-
-                if bit != self.bit:
-                    self.bit = bit
-                    num_level = 2**self.bit
-                    self.logger.info('update %s_bit %r' % (self.tag, self.bit))
-                if num_level != self.num_levels:
-                    #if 'share_level' in parameters and parameters['share_level']:
-                    #    with
-                    self.num_levels = num_level
-                    self.logger.info('update %s_level %r' % (self.tag, self.num_levels))
-
-        if self.method == 'lqnet':
-            pass
+            return feedback
 
     def init_based_on_warmup(self, data=None):
         if not self.enable:
@@ -624,9 +604,24 @@ class custom_conv(nn.Conv2d):
 
     def update_quantization_parameter(self, **parameters):
         if not self.force_fp:
-            self.quant_activation.update_quantization(**parameters)
-            self.quant_weight.update_quantization(**parameters)
-            self.quant_output.update_quantization(**parameters)
+            feedback = dict()
+            def merge_dict(feedback, fd):
+                if fd is not None:
+                    for k in fd:
+                        if k in feedback:
+                            if isinstance(fd[k], list) and isinstance(feedback[k], list):
+                                feedback[k] = feedback[k] + fd[k]
+                        else:
+                            feedback[k] = fd[k]
+            fd = self.quant_activation.update_quantization(**parameters)
+            merge_dict(feedback, fd)
+            fd = self.quant_weight.update_quantization(**parameters)
+            merge_dict(feedback, fd)
+            fd = self.quant_output.update_quantization(**parameters)
+            merge_dict(feedback, fd)
+            return feedback
+        else:
+            return None
 
     def forward(self, inputs):
         if not self.force_fp:

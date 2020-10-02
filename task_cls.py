@@ -197,13 +197,20 @@ def main(args=None):
 
     if model_name in models.model_zoo:
         model, args = models.get_model(args)
-        logging.info("models: %r" % model)
     else:
         logging.error("model(%s) not support, available models: %r" % (model_name, models.model_zoo))
         return
     criterion = nn.CrossEntropyLoss()
     if 'label-smooth' in args.keyword:
         criterion_smooth = utils.CrossEntropyLabelSmooth(args.num_classes, args.label_smooth)
+
+    # load policy for initial phase
+    models.policy.deploy_on_init(model, getattr(args, 'policy', ''))
+    # load policy for epoch updating
+    epoch_policies = models.policy.read_policy(getattr(args, 'policy', ''), section='epoch')
+    # print model
+    logging.info("models: %r" % model)
+    logging.info("epoch_policies: %r" % epoch_policies)
 
     utils.check_folder(args.weights_dir)
     args.weights_dir = os.path.join(args.weights_dir, model_name)
@@ -419,13 +426,6 @@ def main(args=None):
     else:
         args.tensorboard = None
 
-    # init status
-    index = 0
-    for m in model.modules():
-        if 'custom-update' in args.keyword and hasattr(m, 'update_quantization_parameter'):
-            m.update_quantization_parameter(init_lr=args.lr, index=index)
-            index = index + 1
-
     logging.info("start to train network " + model_name + ' with case ' + args.case)
     while epoch < (args.epochs + args.extra_epoch):
         if 'proxquant' in args.keyword:
@@ -452,6 +452,9 @@ def main(args=None):
         loss = 0
         top1, top5, eloss = 0, 0, 0
         is_best = top1 > best_acc
+        # leverage policies on epoch
+        models.policy.deploy_on_epoch(model, epoch_policies, epoch, optimizer=optimizer, verbose=logging.info)
+
         if 'lr-test' not in args.keyword: # otherwise only print the learning rate in each epoch
             # training
             loss = train(train_loader, model, train_criterion, optimizer, args, scheduler, epoch, lr)

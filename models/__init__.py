@@ -20,6 +20,8 @@ try:
     #from .densenet import densenet121
     #from .nasnet import nasnet
     #from .squeezenet import squeezenet
+
+    from . import policy 
 except (ImportError, RuntimeError, FileNotFoundError, PermissionError) as e:
     print('import classification model failed', e)
 

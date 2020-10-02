@@ -1,10 +1,16 @@
 
 import os, sys
+import torch
 
-def read_policy(filename, section='init'):
+def read_policy(filename, section='init', debug=False, verbose=print):
+    if not os.path.isfile(filename):
+        verbose("file no exist: %s" % filename)
+        return []
+
     policies = []
     attr = None
     valid = False
+    found = False  # found policy for the section
     with open(filename) as f:
         while(True):
             line = f.readline()
@@ -14,13 +20,26 @@ def read_policy(filename, section='init'):
             items = line.strip('\n').strip(' ')
             if len(items) == 0 or items[0] == "#":
                 continue
+            items = items.split('#')
+            items = items[0]
 
             items = items.split(':')
+            if debug:
+                verbose(items)
             if len(items) < 2:
                 break
 
-            if section in items[0]:
-                policies = []
+            if 'on' in items[0].split():
+                if section in items[0].split():
+                    policies = [{"trigger": [ int(x) for x in items[1].split() ] }]
+                    attr = None
+                    valid = False
+                    found = True
+                    continue
+                else:
+                    found = False
+
+            if not found:
                 continue
 
             if 'by_' in items[0]:
@@ -58,17 +77,57 @@ def read_policy(filename, section='init'):
 
     return policies
 
-def deploy_on_init(model, filename):
+def deploy_on_init(model, filename, verbose=print):
     if not hasattr(model, 'modules'):
         return
-    if not os.path.isfile(filename):
-        return
 
-    policies = read_policy(filename, 'init')
+    index = 0
+    for m in model.modules():
+        if hasattr(m, 'update_quantization_parameter'):
+            m.update_quantization_parameter(index=index)
+            index = index + 1
+
+    policies = read_policy(filename, 'init', verbose=verbose)
+    verbose(policies)
     for p in policies:
         attributes = p
         assert isinstance(attributes, dict), "Error attributes"
         for m in model.modules():
             if hasattr(m, 'update_quantization_parameter'):
                 m.update_quantization_parameter(**attributes)
+
+def deploy_on_epoch(model, policies, epoch, optimizer=None, verbose=print):
+    if not hasattr(model, 'modules'):
+        return
+
+    if len(policies) < 1:
+        return
+
+    assert 'trigger' in policies[0], "No trigger provided"
+    feedbacks = []
+    if epoch in policies[0]['trigger']:
+        for p in policies:
+            attributes = p
+            assert isinstance(attributes, dict), "Error attributes"
+            for m in model.modules():
+                if hasattr(m, 'update_quantization_parameter'):
+                    feedback = m.update_quantization_parameter(**attributes)
+                    feedbacks.append(feedback)
+
+    if optimizer is not None:
+        assert isinstance(optimizer, torch.optim.SGD), 'reset_momentum is only supported on SGD optimizer currently'
+        with torch.no_grad():
+            for fd in feedbacks:
+                if 'reset_momentum_list' in fd and isinstance(fd['reset_momentum_list'], list):
+                    for p in fd['reset_momentum_list']:
+                        param_state = optimizer.state[p]
+                        if 'momentum_buffer' in param_state:
+                            buf = param_state['momentum_buffer']
+                            buf.mul_(0)
+                            verbose("reset the momentum_buffer for tensor with id: %s" % id(p))
+
+if __name__ == "__main__":
+    print("Loading policy")
+    policies = read_policy('config/srresnet-policy.txt', debug=True)
+    print(policies)
 

@@ -18,6 +18,7 @@ class RoundSTE(torch.autograd.Function):
 class LSQ(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, n):
+        #n = int(n)
         return torch.round(x * n) / n
 
     @staticmethod
