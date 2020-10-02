@@ -366,7 +366,8 @@ class quantization(nn.Module):
                     if self.correlate > 0:
                         max_value = max_value * self.correlate
                     self.clip_val.fill_(max_value)
-                    self.logger.info('update %s clip_val for index %d to %r' % (self.tag, self.index, self.clip_val))
+                    if self.iteration.data == self.args.stable:
+                        self.logger.info('update %s clip_val for index %d to %r' % (self.tag, self.index, self.clip_val))
         return
 
     def init_based_on_pretrain(self, weight=None):
@@ -391,7 +392,7 @@ class quantization(nn.Module):
             self.basis.data = self.basis.data / self.iteration
 
     def quantization_value(self, x, y):
-        if self.iteration.data < self.args.stable:
+        if self.iteration.data <= self.args.stable:
             self.init_based_on_warmup(x)
             return x
         elif 'proxquant' in self.args.keyword:
