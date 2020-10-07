@@ -15,7 +15,6 @@ try:
     from .nin_ import nin as nin_
     
     from .mobilenet import mobilenetv2, mobilenetv1
-    from .qmobilenetv1 import QMobileNetV1 as qmobilenetv1
 
     #from .densenet import densenet121
     #from .nasnet import nasnet
