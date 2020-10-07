@@ -234,12 +234,13 @@ def main(args=None):
                 epoch = checkpoint['epoch']
                 logging.info("resuming ==> last epoch: %d" % epoch)
                 epoch = epoch + 1
+                logging.info("updating ==> epoch: %d" % epoch)
             if 'best_acc' in checkpoint:
                 best_acc = checkpoint['best_acc']
                 logging.info("resuming ==> best_acc: %f" % best_acc)
-            if 'learning_rate' in checkpoint:
-                lr = checkpoint['learning_rate']
-                logging.info("resuming ==> learning_rate: %f" % lr)
+            #if 'learning_rate' in checkpoint:
+            #    lr = checkpoint['learning_rate']
+            #    logging.info("resuming ==> learning_rate: %f" % lr)
             if 'state_dict' in checkpoint:
                 utils.load_state_dict(model, checkpoint['state_dict'])
                 logging.info("resumed from %s" % args.resume_file)
@@ -257,9 +258,9 @@ def main(args=None):
             logging.info("load pretrained ==> last epoch: %d" % checkpoint.get('epoch', 0))
             logging.info("load pretrained ==> last best_acc: %f" % checkpoint.get('best_acc', 0))
             logging.info("load pretrained ==> last learning_rate: %f" % checkpoint.get('learning_rate', 0))
-            if 'learning_rate' in checkpoint:
-                lr = checkpoint['learning_rate']
-                logging.info("resuming ==> learning_rate: %f" % lr)
+            #if 'learning_rate' in checkpoint:
+            #    lr = checkpoint['learning_rate']
+            #    logging.info("resuming ==> learning_rate: %f" % lr)
             try:
                 utils.load_state_dict(model, checkpoint.get('state_dict', checkpoint.get('model', checkpoint)))
             except RuntimeError as err:

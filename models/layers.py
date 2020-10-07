@@ -223,4 +223,15 @@ class ConcatModule(nn.Module):
 def concat(model_list):
     return ConcatModule(model_list)
 
+class FlattenModule(nn.Module):
+    def __init__(self):
+        super(FlattenModule, self).__init__()
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        return x
+
+def flatten():
+    return FlattenModule()
+
 

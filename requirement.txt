@@ -1,6 +1,8 @@
 #
 pandas
 tensorboardX
+numpy
+time
 gpuinfo
 ninja
 torch
