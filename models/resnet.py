@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 from torchvision.models.utils import load_state_dict_from_url
 
+from .quant import custom_conv
+from .layers import norm, actv, concat
+
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
            'resnet152', 'resnext50_32x4d', 'resnext101_32x8d',
@@ -20,11 +23,9 @@ model_urls = {
     'wide_resnet101_2': 'https://download.pytorch.org/models/wide_resnet101_2-32ee1156.pth',
 }
 
-
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1, args=None):
     """3x3 convolution with padding"""
     if args is not None and hasattr(args, 'keyword'):
-        from .quant import custom_conv
         return custom_conv(in_planes, out_planes, kernel_size=3, stride=stride,
                 padding=dilation, groups=groups, bias=False, dilation=dilation,
                 args=args)
@@ -36,46 +37,10 @@ def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1, args=None):
 def conv1x1(in_planes, out_planes, stride=1, args=None, force_fp=False):
     """1x1 convolution"""
     if args is not None and hasattr(args, 'keyword'):
-        from .quant import custom_conv
         return custom_conv(in_planes, out_planes, kernel_size=1, stride=stride, bias=False,
                 args=args, force_fp=force_fp)
     else:
         return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
-
-class SEModule(nn.Module):
-    def __init__(self, channels, reduction=16):
-        super(SEModule, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.fc1 = nn.Conv2d(channels, channels // reduction, kernel_size=1, padding=0)
-        self.relu = nn.ReLU(inplace=True)
-        self.fc2 = nn.Conv2d(channels // reduction, channels, kernel_size=1, padding=0)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        module_input = x
-        x = self.avg_pool(x)
-        x = self.fc1(x)
-        x = self.relu(x)
-        x = self.fc2(x)
-        x = self.sigmoid(x)
-        return module_input * x
-
-class SELayer(nn.Module):
-    def __init__(self, channel, reduction=16):
-        super(SELayer, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Sequential(
-            nn.Linear(channel, channel // reduction, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(channel // reduction, channel, bias=False),
-            nn.Sigmoid()
-        )
-
-    def forward(self, x):
-        b, c, _, _ = x.size()
-        y = self.avg_pool(x).view(b, c)
-        y = self.fc(y).view(b, c, 1, 1)
-        return x * y.expand_as(x)
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -95,52 +60,28 @@ class BasicBlock(nn.Module):
         self.relu2 = nn.ReLU(inplace=True)
         inner_planes = planes
         if args is not None and hasattr(args, 'keyword'):
-            if 'expand-block' in args.keyword and hasattr(args, 'block_alpha'):
-                inner_planes = int(inner_planes * args.block_alpha)
-
-            if 'PReLU' in args.keyword:
-                self.relu1 = nn.PReLU()
-                self.relu2 = nn.PReLU()
-
-            if 'extra_prebn' in args.keyword:
-                self.extra_bn1 = norm_layer(inplanes)
-                self.extra_bn2 = norm_layer(inner_planes)
-
-            if 'skip_scale' in args.keyword and downsample is None:
-                self.skip_scale = nn.Parameter(torch.ones(1, inplanes, 1, 1))
-
-            if 'se-module' in args.keyword and hasattr(args, 'se_reduction'):
-                self.se = SEModule(planes, args.se_reduction)
-            elif 'se-layer' in args.keyword and hasattr(args, 'se_reduction'):
-                self.se = SELayer(planes, args.se_reduction)
+            self.relu1 = actv(args=args)
+            self.relu2 = actv(args=args)
 
         self.conv1 = conv3x3(inplanes, inner_planes, stride, args=args)
-        self.bn1 = norm_layer(inner_planes)
+        self.bn1 = norm_layer(inner_planes, args=args)
         self.conv2 = conv3x3(inner_planes, planes, args=args)
-        self.bn2 = norm_layer(planes)
+        self.bn2 = norm_layer(planes, args=args)
         self.downsample = downsample
         self.stride = stride
 
     def forward(self, x):
         identity = x
 
-        if hasattr(self, 'extra_bn1'):
-            x = self.extra_bn1(x)
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu1(out)
 
-        if hasattr(self, 'extra_bn2'):
-            out = self.extra_bn2(out)
         out = self.conv2(out)
         out = self.bn2(out)
-        if hasattr(self, 'se'):
-            out = self.se(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
-        elif hasattr(self, 'skip_scale'):
-            identity = identity * self.skip_scale
 
         out += identity
         out = self.relu2(out)
@@ -169,46 +110,32 @@ class Bottleneck(nn.Module):
         self.relu2 = nn.ReLU(inplace=True)
         self.relu3 = nn.ReLU(inplace=True)
         if args is not None and hasattr(args, 'keyword'):
-            if 'PReLU' in args.keyword:
-                self.relu1 = nn.PReLU()
-                self.relu2 = nn.PReLU()
-                self.relu3 = nn.PReLU()
-
-            if 'se-module' in args.keyword and hasattr(args, 'se_reduction'):
-                self.se = SEModule(planes * self.expansion, args.se_reduction)
-            elif 'se-layer' in args.keyword and hasattr(args, 'se_reduction'):
-                self.se = SELayer(planes * self.expansion, args.se_reduction)
+            self.relu1 = actv(args=args) 
+            self.relu2 = actv(args=args) 
+            self.relu3 = actv(args=args) 
         ###
         self.conv1 = conv1x1(inplanes, width, args=args)
-        self.bn1 = norm_layer(width)
+        self.bn1 = norm_layer(width, args=args)
         self.conv2 = conv3x3(width, width, stride, groups, dilation, args=args)
-        self.bn2 = norm_layer(width)
+        self.bn2 = norm_layer(width, args=args)
         self.conv3 = conv1x1(width, planes * self.expansion, args=args)
-        self.bn3 = norm_layer(planes * self.expansion)
+        self.bn3 = norm_layer(planes * self.expansion, args=args)
         self.downsample = downsample
         self.stride = stride
 
     def forward(self, x):
         identity = x
 
-        if hasattr(self, 'extra_bn1'):
-            x = self.extra_bn1(x)
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu1(out)
 
-        if hasattr(self, 'extra_bn2'):
-            out = self.extra_bn2(out)
         out = self.conv2(out)
         out = self.bn2(out)
         out = self.relu2(out)
 
-        if hasattr(self, 'extra_bn3'):
-            out = self.extra_bn3(out)
         out = self.conv3(out)
         out = self.bn3(out)
-        if hasattr(self, 'se'):
-            out = self.se(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
@@ -241,16 +168,17 @@ class ResNet(nn.Module):
                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
-                               bias=False)
+        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         if args is not None and hasattr(args, 'keyword'):
-            if 'PReLU' in args.keyword:
-                self.relu = nn.PReLU()
+            if 'first-last' in args.keyword:
+                self.conv1 = custom_conv(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False, args=args)
+            self.bn1 = norm(self.inplanes, args=args)
+            self.relu = actv(args=args)
             if 'caffe-pooling' in args.keyword:
-                self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2,ceil_mode=True)
+                self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)
 
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
@@ -261,6 +189,9 @@ class ResNet(nn.Module):
                                        dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
+        #if args is not None and hasattr(args, 'keyword'):
+        #    if 'first-last' in args.keyword:
+        #        self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -280,7 +211,6 @@ class ResNet(nn.Module):
                     nn.init.constant_(m.bn2.weight, 0)
 
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
-        norm_layer = self._norm_layer
         downsample = None
         previous_dilation = self.dilation
         if dilate:
@@ -293,22 +223,21 @@ class ResNet(nn.Module):
                     force_fp = True
             downsample = nn.Sequential(
                 conv1x1(self.inplanes, planes * block.expansion, stride, args=self.args, force_fp=force_fp),
-                norm_layer(planes * block.expansion),
+                norm(planes * block.expansion, args=self.args),
             )
 
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
-                            self.base_width, previous_dilation, norm_layer, args=self.args))
+                            self.base_width, previous_dilation, norm, args=self.args))
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
             layers.append(block(self.inplanes, planes, groups=self.groups,
                                 base_width=self.base_width, dilation=self.dilation,
-                                norm_layer=norm_layer, args=self.args))
+                                norm_layer=norm, args=self.args))
 
         return nn.Sequential(*layers)
 
     def _forward_impl(self, x):
-        # See note [TorchScript super()]
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)

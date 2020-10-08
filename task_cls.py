@@ -131,6 +131,8 @@ def get_parser(parser=None):
     parser.add_argument('--custom_lr_list', default='', type=str)
     parser.add_argument('--custom_lr', default=1e-5, type=float)
 
+    # gloabl buffer
+    parser.add_argument('--global_buffer', default=dict(), type=dict)
     return parser
 
 def get_parameter():
@@ -529,11 +531,6 @@ def train(loader, model, criterion, optimizer, args, scheduler, epoch, lr):
             if isinstance(lr_list, list):
                 lr = lr_list[0]
 
-        if 'custom-update' in args.keyword:
-            for m in model.modules():
-                if hasattr(m, 'update_quantization_parameter'):
-                    m.update_quantization_parameter(epoch=epoch, length=length, lr=lr)
-
         outputs = model(input)
         if isinstance(outputs, dict) and hasattr(model, '_out_features'):
             outputs = outputs[model._out_features[0]]
@@ -554,6 +551,9 @@ def train(loader, model, criterion, optimizer, args, scheduler, epoch, lr):
                 scaled_loss.backward()
         else:
             loss.backward()
+            for m in model.modules():
+                if hasattr(m, 'quant_loss_backward'):
+                    m.quant_loss_backward()
 
         if i % args.iter_size == (args.iter_size - 1):
             if args.grad_clip is not None:

@@ -100,6 +100,10 @@ class quantization(nn.Module):
         self.iteration = nn.Parameter(torch.zeros(1), requires_grad=False)
         self.level_num = nn.Parameter(torch.zeros(1), requires_grad=False)
         self.progressive = False
+        self.quant_loss_enable = False
+        self.quant_loss_function = 'None'
+        self.quant_loss_alpha = 0.0
+        self.quant_loss = None
         self.init()
         self.level_num.fill_(self.num_levels)
 
@@ -194,6 +198,8 @@ class quantization(nn.Module):
                     self.quant = dorefa.LSQ
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
+                    self.args.global_buffer[id(self.clip_val)] = self.clip_val
+                    #self.logger.info('update global_buffer item count %d' % len(self.args.global_buffer))
                 elif 'non-uniform' in self.args.keyword or 'fm_non-uniform' in self.args.keyword:
                     if self.quant_group == 1:
                         self.clip_val = nn.Parameter(torch.Tensor([self.boundary]), requires_grad = False)
@@ -236,6 +242,7 @@ class quantization(nn.Module):
                     self.quant = dorefa.LSQ
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
+                    self.args.global_buffer[id(self.clip_val)] = self.clip_val
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
                     self.quant = dorefa.RoundSTE
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
@@ -265,6 +272,7 @@ class quantization(nn.Module):
                     self.quant = dorefa.LSQ
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
+                    self.args.global_buffer[id(self.clip_val)] = self.clip_val
                 elif 'non-uniform' in self.args.keyword or 'pact' in self.args.keyword:
                     raise RuntimeError("error keyword for the method, specific accurate tag please")
                 else: # Dorefa-Net
@@ -324,7 +332,8 @@ class quantization(nn.Module):
                                     v = int(v)
                                 elif isinstance(getattr(self, k), float):
                                     v = float(v)
-                                
+                                elif isinstance(getattr(self, k), str):
+                                    v = str(v)
                                 if isinstance(getattr(self, k), torch.Tensor):
                                     with torch.no_grad():
                                         if self.progressive:
@@ -352,6 +361,12 @@ class quantization(nn.Module):
         if not self.enable:
             return None
         else:
+            if self.quant_loss_function = 'L2':
+                self.quant_loss_function = nn.MSELoss()
+            elif self.quant_loss_function = 'L1':
+                self.quant_loss_function = nn.L1Loss()
+            else:
+                self.quant_loss_function = 'none'
             assert self.method != 'none', "quantization enable but without specific method in layer(index:{}, tag:{})".format(self.index, self.tag)
             return feedback
 
@@ -391,6 +406,10 @@ class quantization(nn.Module):
             self.iteration.data = self.iteration.data + 1
             self.basis.data = self.basis.data / self.iteration
 
+    def quant_loss_backward(self):
+        if self.quant_loss_enable and self.quant_loss is not None:
+            self.quant_loss.backward()
+
     def quantization_value(self, x, y):
         if self.iteration.data <= self.args.stable:
             self.init_based_on_warmup(x)
@@ -407,6 +426,8 @@ class quantization(nn.Module):
                     elif hasattr(self, item):
                         torch.save(getattr(self, item), "log/{}-activation-{}.pt".format(self.index, item))
                 self.index = -1
+            if self.quant_loss_enable and isinstance(self.quant_loss_function, nn.Module):
+                self.quant_loss = self.quant_loss_function(x, y) * self.quant_loss_alpha
             return y
 
     def forward(self, x):
