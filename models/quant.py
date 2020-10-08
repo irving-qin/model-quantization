@@ -361,9 +361,9 @@ class quantization(nn.Module):
         if not self.enable:
             return None
         else:
-            if self.quant_loss_function = 'L2':
+            if self.quant_loss_function == 'L2':
                 self.quant_loss_function = nn.MSELoss()
-            elif self.quant_loss_function = 'L1':
+            elif self.quant_loss_function == 'L1':
                 self.quant_loss_function = nn.L1Loss()
             else:
                 self.quant_loss_function = 'none'
