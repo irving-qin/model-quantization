@@ -428,6 +428,8 @@ class quantization(nn.Module):
                 self.index = -1
             if self.quant_loss_enable and isinstance(self.quant_loss_function, nn.Module):
                 self.quant_loss = self.quant_loss_function(x, y) * self.quant_loss_alpha
+            else:
+                self.quant_loss = None
             return y
 
     def forward(self, x):
