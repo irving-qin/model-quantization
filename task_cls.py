@@ -543,6 +543,10 @@ def train(loader, model, criterion, optimizer, args, scheduler, epoch, lr):
         else:
             loss = criterion(outputs, target)
 
+        if 'quant_loss' in args.global_buffer:
+            loss += args.global_buffer['quant_loss']
+            args.global_buffer.pop('quant_loss')
+
         if i % args.iter_size == 0:
             optimizer.zero_grad()
 
@@ -551,9 +555,6 @@ def train(loader, model, criterion, optimizer, args, scheduler, epoch, lr):
                 scaled_loss.backward()
         else:
             loss.backward()
-            for m in model.modules():
-                if hasattr(m, 'quant_loss_backward'):
-                    m.quant_loss_backward()
 
         if i % args.iter_size == (args.iter_size - 1):
             if args.grad_clip is not None:

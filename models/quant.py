@@ -103,7 +103,6 @@ class quantization(nn.Module):
         self.quant_loss_enable = False
         self.quant_loss_function = 'None'
         self.quant_loss_alpha = 0.0
-        self.quant_loss = None
         self.init()
         self.level_num.fill_(self.num_levels)
 
@@ -406,10 +405,6 @@ class quantization(nn.Module):
             self.iteration.data = self.iteration.data + 1
             self.basis.data = self.basis.data / self.iteration
 
-    def quant_loss_backward(self):
-        if self.quant_loss_enable and self.quant_loss is not None:
-            self.quant_loss.backward()
-
     def quantization_value(self, x, y):
         if self.iteration.data <= self.args.stable:
             self.init_based_on_warmup(x)
@@ -427,9 +422,10 @@ class quantization(nn.Module):
                         torch.save(getattr(self, item), "log/{}-activation-{}.pt".format(self.index, item))
                 self.index = -1
             if self.quant_loss_enable and isinstance(self.quant_loss_function, nn.Module):
-                self.quant_loss = self.quant_loss_function(x, y) * self.quant_loss_alpha
-            else:
-                self.quant_loss = None
+                if 'quant_loss' in self.args.global_buffer:
+                    self.args.global_buffer['quant_loss'] += self.quant_loss_function(x, y) * self.quant_loss_alpha
+                else:
+                    self.args.global_buffer['quant_loss'] = self.quant_loss_function(x, y) * self.quant_loss_alpha
             return y
 
     def forward(self, x):
