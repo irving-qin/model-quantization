@@ -364,6 +364,8 @@ class quantization(nn.Module):
                 self.quant_loss_function = nn.MSELoss()
             elif self.quant_loss_function == 'L1':
                 self.quant_loss_function = nn.L1Loss()
+            elif self.quant_loss_function == 'QDL':
+                self.quant_loss_function = dorefa.Quant_Distribution_Loss()
             else:
                 self.quant_loss_function = 'none'
             assert self.method != 'none', "quantization enable but without specific method in layer(index:{}, tag:{})".format(self.index, self.tag)

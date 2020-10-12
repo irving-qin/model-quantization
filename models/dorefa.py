@@ -1,5 +1,6 @@
 
 import torch
+import torch.nn as nn
 import numpy as np
 
 __EPS__ = 1e-5
@@ -107,4 +108,14 @@ def non_uniform_scale(x, codec):
     basis = BTxX / BTXB
     basis = torch.where(BTXB == 0, x.mean().to(torch.float32), basis)
     return basis
+
+class Quant_Distribution_Loss(nn.Module):
+    def __init__(self):
+        super(Quant_Distribution_Loss, self).__init__()
+
+    def forward(self, input: Tensor, target: Tensor) -> Tensor:
+        m = input * target
+        n = target * target
+        return m.sum() - n.sum()
+
 
