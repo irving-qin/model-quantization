@@ -113,9 +113,10 @@ class Quant_Distribution_Loss(nn.Module):
     def __init__(self):
         super(Quant_Distribution_Loss, self).__init__()
 
-    def forward(self, input: Tensor, target: Tensor) -> Tensor:
+    def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         m = input * target
         n = target * target
-        return m.sum() - n.sum()
+        k = m.sum() / n.sum()
+        return (k - 1).abs()
 
 
