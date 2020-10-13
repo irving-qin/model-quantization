@@ -240,9 +240,9 @@ def main(args=None):
             if 'best_acc' in checkpoint:
                 best_acc = checkpoint['best_acc']
                 logging.info("resuming ==> best_acc: %f" % best_acc)
-            #if 'learning_rate' in checkpoint:
-            #    lr = checkpoint['learning_rate']
-            #    logging.info("resuming ==> learning_rate: %f" % lr)
+            if 'learning_rate' in checkpoint:
+                lr = checkpoint['learning_rate']
+                logging.info("resuming ==> learning_rate: %f" % lr)
             if 'state_dict' in checkpoint:
                 utils.load_state_dict(model, checkpoint['state_dict'])
                 logging.info("resumed from %s" % args.resume_file)
