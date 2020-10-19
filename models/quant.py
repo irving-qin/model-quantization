@@ -233,10 +233,10 @@ class quantization(nn.Module):
                     self.choice = 'dorefa-net'
             elif self.tag == 'wt':
                 if 'lsq' in self.args.keyword or 'wt_lsq' in self.args.keyword:
-                    if self.shape[0] == 1:  ## linear
+                    if self.shape[0] == 1 and self.quant_group != 1:  ## linear
                         raise RuntimeError("Quantization-{} for linear layer not provided".format(self.tag))
-                    else:
-                        self.clip_val = nn.Parameter(torch.zeros(self.quant_group, 1, 1, 1))
+                    #else:
+                    self.clip_val = nn.Parameter(torch.zeros(self.quant_group, 1, 1, 1))
                     self.clip_val.data.fill_(self.boundary)
                     self.quant = dorefa.LSQ
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
@@ -685,7 +685,7 @@ def conv0x0(in_planes, out_planes, stride=1, groups=1, padding=0, bias=False, ar
     return nn.Sequential()
 
 class custom_linear(nn.Linear):
-    def __init__(self, in_channels, out_channels, dropout=0, args=None, bias=False):
+    def __init__(self, in_channels, out_channels, dropout=0, bias=True, args=None):
         super(custom_linear, self).__init__(in_channels, out_channels, bias=bias)
         self.args = args
         self.dropout = dropout
@@ -719,7 +719,10 @@ class custom_linear(nn.Linear):
 
     def forward(self, inputs):
         if not self.force_fp:
+            shape = self.weight.shape 
             weight = self.quant_weight(self.weight)
+            weight = weight.reshape(shape)
+
             inputs = self.quant_activation(inputs)
         else:
             weight = self.weight
@@ -731,9 +734,9 @@ class custom_linear(nn.Linear):
 
         return output
 
-def qlinear(in_planes, out_planes, dropout=0, args=None):
+def qlinear(in_planes, out_planes, dropout=0, bias=True, args=None):
     "1x1 convolution"
-    return custom_linear(in_planes, out_planes, dropout=dropout, args=args)
+    return custom_linear(in_planes, out_planes, dropout=dropout, bias=bias, args=args)
 
 class custom_eltwise(nn.Module):
     def __init__(self, channels=1, args=None, operator='sum'):

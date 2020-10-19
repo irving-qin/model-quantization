@@ -191,7 +191,7 @@ class ResNet(nn.Module):
         self.fc = nn.Linear(512 * block.expansion, num_classes)
         if args is not None and hasattr(args, 'keyword'):
             if 'first-last' in args.keyword:
-                self.fc = custom_linear(512 * block.expansion, num_classes)
+                self.fc = custom_linear(512 * block.expansion, num_classes, bias=True, args=args)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
