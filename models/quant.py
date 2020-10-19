@@ -690,10 +690,10 @@ class custom_linear(nn.Linear):
         self.args = args
         self.dropout = dropout
         self.force_fp = True
-        if self.args is not None and hasattr(self.args, 'keyword') and 'linear-quant' in self.args.keyword:
+        if self.args is not None and hasattr(self.args, 'keyword'):
             self.quant_activation = quantization(args, 'fm', [1, in_channels, 1, 1])
             self.quant_weight = quantization(args, 'wt', [1, 1, out_channels, in_channels])
-            self.force_fp =  False
+            self.force_fp = False
 
     #def init_after_load_pretrain(self):
     #    self.quant_weight.init_based_on_pretrain(self.weight.data)
