@@ -684,34 +684,56 @@ def conv0x0(in_planes, out_planes, stride=1, groups=1, padding=0, bias=False, ar
     "nop"
     return nn.Sequential()
 
-#class custom_linear(nn.Linear):
-#    def __init__(self, in_channels, out_channels, dropout=0, args=None, bias=False):
-#        super(custom_linear, self).__init__(in_channels, out_channels, bias=bias)
-#        self.args = args
-#        self.dropout = dropout
-#        self.quant_activation = quantization(args, 'fm', [1, in_channels, 1, 1])
-#        self.quant_weight = quantization(args, 'wt', [1, 1, out_channels, in_channels])
-#
-#    def init_after_load_pretrain(self):
-#        self.quant_weight.init_based_on_pretrain(self.weight.data)
-#        self.quant_activation.init_based_on_pretrain()
-#
-#    def update_quantization_parameter(self, epoch=0, length=0):
-#        self.quant_activation.update_quantization(epoch, length)
-#        self.quant_weight.update_quantization(epoch, length)
-#
-#    def forward(self, inputs):
-#        weight = self.quant_weight(self.weight)
-#        inputs = self.quant_activation(inputs)
-#        output = F.linear(inputs, weight, self.bias)
-#        if self.dropout != 0:
-#            output = F.dropout(output, p=self.dropout, training=self.training)
-#
-#        return output
-#
-#def qlinear(in_planes, out_planes, dropout=0, args=None):
-#    "1x1 convolution"
-#    return custom_linear(in_planes, out_planes, dropout=dropout, args=args)
+class custom_linear(nn.Linear):
+    def __init__(self, in_channels, out_channels, dropout=0, args=None, bias=False):
+        super(custom_linear, self).__init__(in_channels, out_channels, bias=bias)
+        self.args = args
+        self.dropout = dropout
+        self.force_fp = True
+        if self.args is not None and hasattr(self.args, 'keyword') and 'linear-quant' in self.args.keyword:
+            self.quant_activation = quantization(args, 'fm', [1, in_channels, 1, 1])
+            self.quant_weight = quantization(args, 'wt', [1, 1, out_channels, in_channels])
+            self.force_fp =  False
+
+    #def init_after_load_pretrain(self):
+    #    self.quant_weight.init_based_on_pretrain(self.weight.data)
+    #    self.quant_activation.init_based_on_pretrain()
+
+    def update_quantization_parameter(self, **parameters):
+        if not self.force_fp:
+            feedback = dict()
+            def merge_dict(feedback, fd):
+                if fd is not None:
+                    for k in fd:
+                        if k in feedback:
+                            if isinstance(fd[k], list) and isinstance(feedback[k], list):
+                                feedback[k] = feedback[k] + fd[k]
+                        else:
+                            feedback[k] = fd[k]
+            fd = self.quant_activation.update_quantization(**parameters)
+            merge_dict(feedback, fd)
+            fd = self.quant_weight.update_quantization(**parameters)
+            return feedback
+        else:
+            return None
+
+    def forward(self, inputs):
+        if not self.force_fp:
+            weight = self.quant_weight(self.weight)
+            inputs = self.quant_activation(inputs)
+        else:
+            weight = self.weight
+
+        output = F.linear(inputs, weight, self.bias)
+
+        if self.dropout != 0:
+            output = F.dropout(output, p=self.dropout, training=self.training)
+
+        return output
+
+def qlinear(in_planes, out_planes, dropout=0, args=None):
+    "1x1 convolution"
+    return custom_linear(in_planes, out_planes, dropout=dropout, args=args)
 
 class custom_eltwise(nn.Module):
     def __init__(self, channels=1, args=None, operator='sum'):
