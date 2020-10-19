@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torchvision.models.utils import load_state_dict_from_url
 
-from .quant import custom_conv
+from .quant import custom_conv, custom_linear
 from .layers import norm, actv, concat
 
 
@@ -189,9 +189,9 @@ class ResNet(nn.Module):
                                        dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
-        #if args is not None and hasattr(args, 'keyword'):
-        #    if 'first-last' in args.keyword:
-        #        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        if args is not None and hasattr(args, 'keyword'):
+            if 'first-last' in args.keyword:
+                self.fc = custom_linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
