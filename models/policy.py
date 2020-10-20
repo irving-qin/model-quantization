@@ -126,6 +126,9 @@ def deploy_on_epoch(model, policies, epoch, optimizer=None, verbose=print):
                             buf.mul_(0)
                             verbose("reset the momentum_buffer for tensor with id: %s" % id(p))
 
+def deploy_on_iteration(model, policies, iteration, optimizer=None, verbose=print):
+    deploy_on_epoch(model, policies, iteration, optimizer, verbose)
+
 if __name__ == "__main__":
     print("Loading policy")
     policies = read_policy('config/srresnet-policy.txt', debug=True)
