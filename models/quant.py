@@ -195,7 +195,7 @@ class quantization(nn.Module):
                         self.clip_val = nn.Parameter(torch.zeros(1, self.quant_group, 1, 1))
                     self.clip_val.data.fill_(self.boundary)
                     self.quant = dorefa.LSQ
-                    self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
+                    self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp_
                     self.choice = 'lsq'
                     #self.args.global_buffer[id(self.clip_val)] = self.clip_val
                     #self.logger.info('update global_buffer item count %d' % len(self.args.global_buffer))
@@ -465,10 +465,10 @@ class quantization(nn.Module):
                 if 'lsq' in self.args.keyword or '{}_lsq'.format(self.tag) in self.args.keyword:
                     clip_val = dorefa.GradientScale(self.clip_val.abs(), self.grad_factor)
                     if self.half_range:
-                        y = x / clip_val
+                        y = x.div_(clip_val)
                         y = self.clamp(y, min=0, max=1)
                         y = self.quant.apply(y, self.level_num.item() - 1)
-                        y = y * clip_val
+                        y = y.mul_(clip_val)
                     else:
                         y = x / clip_val
                         y = self.clamp(y, min=-1, max=1)
