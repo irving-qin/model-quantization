@@ -20,7 +20,7 @@ class LSQ(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, n):
         #n = int(n)
-        return torch.round_(x.mul_(n)).div_(n)
+        return torch.round(x * n) / n
 
     @staticmethod
     def backward(ctx, grad_output):
