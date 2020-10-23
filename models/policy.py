@@ -87,7 +87,9 @@ def deploy_on_init(model, filename, verbose=print):
             m.update_quantization_parameter(index=index)
             index = index + 1
 
+    # conv / fc layer
     policies = read_policy(filename, 'init', verbose=verbose)
+    verbose("loading 'init' section of policy")
     verbose(policies)
     for p in policies:
         attributes = p
@@ -95,6 +97,17 @@ def deploy_on_init(model, filename, verbose=print):
         for m in model.modules():
             if hasattr(m, 'update_quantization_parameter'):
                 m.update_quantization_parameter(**attributes)
+
+    # norm layer
+    policies = read_policy(filename, 'norm', verbose=verbose)
+    verbose("loading 'norm' section of policy")
+    verbose(policies)
+    for p in policies:
+        attributes = p
+        assert isinstance(attributes, dict), "Error attributes"
+        for m in model.modules():
+            if hasattr(m, 'update_norm_quantization_parameter'):
+                m.update_norm_quantization_parameter(**attributes)
 
 def deploy_on_epoch(model, policies, epoch, optimizer=None, verbose=print):
     if not hasattr(model, 'modules'):
