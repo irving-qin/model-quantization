@@ -356,7 +356,7 @@ class quantization(nn.Module):
                             # global_buffer
                             if k in ['global_buffer']:
                                 v = str(v)
-                                if isinstance(getattr(self.args, k, None), dict) and hasattr(self, v):
+                                if isinstance(getattr(self.args, k, None), dict) and hasattr(self, v) and self.enable:
                                     key = "{}-{}-{}".format(v, self.index, self.tag)
                                     self.args.global_buffer[key] = getattr(self, v)
                                     self.logger.info('update global_buffer (current length: {}), key: {}'.format(len(self.args.global_buffer), key))
