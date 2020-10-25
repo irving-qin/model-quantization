@@ -117,9 +117,9 @@ class quantization(nn.Module):
 
     def __str__(self):
         if self.args is None or self.enable == False:
-            return "quantization-{}-index{}".format(self.tag, self.index)
+            return "quantization-{}-index({})".format(self.tag, self.index)
         else:
-            return "quantization-{}-index{}-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})".format(
+            return "quantization-{}-index({})-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})".format(
                     self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group)
 
     def init(self):
@@ -328,7 +328,7 @@ class quantization(nn.Module):
                                 elif isinstance(getattr(self, k), float):
                                     v = float(v)
                                 elif isinstance(getattr(self, k), str):
-                                    v = str(v)
+                                    v = v.replace("'", "").replace('"', '')
                                 if isinstance(getattr(self, k), torch.Tensor):
                                     with torch.no_grad():
                                         if self.progressive:
