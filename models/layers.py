@@ -69,9 +69,6 @@ class StaticBatchNorm2d(nn.Module):
     """
     BatchNorm2d where the batch statistics are fixed, but the affine parameters are not.
     """
-
-    _version = 3
-
     def __init__(self, num_features, eps=1e-5, args=None):
         super().__init__()
         self.num_features = num_features
@@ -81,103 +78,12 @@ class StaticBatchNorm2d(nn.Module):
         self.register_buffer("running_mean", torch.zeros(num_features))
         self.register_buffer("running_var", torch.ones(num_features) - eps)
 
-        # quantization related attributes
-        self.enable = False
-        self.args = args
-        self.index = -1
-        self.tag = 'norm'
-        self.input_index = ""
-        self.quant_function = dorefa.RoundSTE
-        self.verbose = None
-        if args is not None:
-            assert hasattr(args, 'global_buffer'), "no global_buffer found in quantization args"
-
-    def convert_norm_to_quantization_version(self, args=None, index=-1, verbose=print):
-        self.args = args
-        self.verbose = verbose
-        self.update_norm_quantization_parameter(index=index)
-        if args is not None:
-            assert hasattr(args, 'global_buffer'), "no global_buffer found in quantization args"
-
-    def update_norm_quantization_parameter(self, **parameters):
-        index = self.index
-        if 'index' in parameters:
-            index =  parameters['index']
-        if index != self.index:
-            self.index = index
-            self.verbose('update %s_index %r' % (self.tag, self.index))
-
-        if 'by_index' in parameters:
-            by_index = parameters['by_index']
-            if isinstance(by_index, list) or (isinstance(by_index, str) and by_index != "all"):
-                try:
-                    if not isinstance(by_index, list):
-                        by_index = by_index.split()
-                    by_index = [int(i) for i in by_index]
-                except (ValueError, SyntaxError) as e:
-                    self.verbose('unexpect string in by_index: {}'.format(by_index))
-
-            if by_index == 'all' or self.index in by_index:
-                if ('by_tag' in parameters and self.tag in parameters['by_tag']) or ('by_tag' not in parameters):
-                        for k, v in list(parameters.items()):
-                            if hasattr(self, "{}".format(k)):
-                                if isinstance(getattr(self, k), bool):
-                                    v = False if v in ['False', 'false', False] else True
-                                elif isinstance(getattr(self, k), int):
-                                    v = int(v)
-                                elif isinstance(getattr(self, k), float):
-                                    v = float(v)
-                                elif isinstance(getattr(self, k), str):
-                                    v = str(v)
-                                if isinstance(getattr(self, k), torch.Tensor):
-                                    pass
-                                else:
-                                    setattr(self, "{}".format(k), v)
-                                self.verbose('update {}_{} to {} for index {}'.format(self.tag, k, getattr(self, k, 'Non-Exist'), self.index))
-        if self.enable:
-            assert self.args is not None, "args should not be None"
-
     def forward(self, x):
         scale = self.weight * (self.running_var + self.eps).rsqrt()
-        bias = self.bias / scale - self.running_mean
-        if self.enable:
-            input_scale = 1.0
-            if self.input_index + "-fm" in self.args.global_buffer:
-                input_scale = input_scale * self.args.global_buffer[self.input_index + "-fm"]
-            if self.input_index + "-wt" in self.args.global_buffer:
-                input_scale = input_scale * self.args.global_buffer[self.input_index + "-wt"]
-            bias = self.quant_function.apply(bias / input_scale) * input_scale
+        bias = self.bias - self.running_mean * scale
         scale = scale.reshape(1, -1, 1, 1)
         bias = bias.reshape(1, -1, 1, 1)
-        return (x + bias) * scale
-
-    def _load_from_state_dict(
-        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
-    ):
-        version = local_metadata.get("version", None)
-
-        if version is None or version < 2:
-            # No running_mean/var in early versions
-            # This will silent the warnings
-            if prefix + "running_mean" not in state_dict:
-                state_dict[prefix + "running_mean"] = torch.zeros_like(self.running_mean)
-            if prefix + "running_var" not in state_dict:
-                state_dict[prefix + "running_var"] = torch.ones_like(self.running_var)
-
-        if version is not None and version < 3:
-            self.verbose("StaticBatchNorm {} is upgraded from version {} to 3.".format(prefix.rstrip("."), version))
-            # In version < 3, running_var are used without +eps.
-            state_dict[prefix + "running_var"] -= self.eps
-
-        super()._load_from_state_dict(
-            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
-        )
-
-    def __repr__(self):
-        if self.enable:
-            return "StaticBatchNorm2d(num_features={}, eps={}, index={})".format(self.num_features, self.eps, self.index)
-        else:
-            return "StaticBatchNorm2d(num_features={}, eps={})".format(self.num_features, self.eps)
+        return x * scale + bias
 
 class ReverseBatchNorm2d(nn.BatchNorm2d):
     def __init__(self, num_features, eps=1e-5, affine=True):
@@ -204,7 +110,7 @@ def norm(channel, eps=1e-5, args=None, keyword=None, feature_stride=None, affine
         group = getattr(args, "fm_quant_group", 32)
         return nn.GroupNorm(group, channel)
 
-    if "static-bn" in keyword or "StaticBN" in keyword:
+    if "static-bn" in keyword:
         return StaticBatchNorm2d(channel, args=args)
 
     if "freeze-bn" in keyword:

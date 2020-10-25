@@ -197,8 +197,6 @@ class quantization(nn.Module):
                     self.quant = dorefa.LSQ
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
-                    #self.args.global_buffer[id(self.clip_val)] = self.clip_val
-                    #self.logger.info('update global_buffer item count %d' % len(self.args.global_buffer))
                 elif 'non-uniform' in self.args.keyword or 'fm_non-uniform' in self.args.keyword:
                     if self.quant_group == 1:
                         self.clip_val = nn.Parameter(torch.Tensor([self.boundary]), requires_grad = False)
@@ -241,7 +239,6 @@ class quantization(nn.Module):
                     self.quant = dorefa.LSQ
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
-                    #self.args.global_buffer[id(self.clip_val)] = self.clip_val
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
                     self.quant = dorefa.RoundSTE
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
@@ -271,7 +268,6 @@ class quantization(nn.Module):
                     self.quant = dorefa.LSQ
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
-                    #self.args.global_buffer[id(self.clip_val)] = self.clip_val
                 elif 'non-uniform' in self.args.keyword or 'pact' in self.args.keyword:
                     raise RuntimeError("error keyword for the method, specific accurate tag please")
                 else: # Dorefa-Net
@@ -351,11 +347,19 @@ class quantization(nn.Module):
                                                     else:
                                                         feedback['reset_momentum_list'] = [self.clip_val]
                                         getattr(self, k).fill_(float(v))
+                                    self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, getattr(self, k, 'Non-Exist'), self.index))
                                 else:
                                     setattr(self, "{}".format(k), v)
-                                self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, getattr(self, k, 'Non-Exist'), self.index))
+                                    self.logger.info('update {}_{} to {} for index {}'.format(self.tag, k, getattr(self, k, 'Non-Exist'), self.index))
                                 if self.enable:
                                     assert hasattr(self, 'iteration'), "cannot enable quantization for current layer. Likely an error in policy file"
+                            # global_buffer
+                            if k in ['global_buffer']:
+                                v = str(v)
+                                if isinstance(getattr(self.args, k, None), dict) and hasattr(self, v):
+                                    key = "{}-{}-{}".format(v, self.index, self.tag)
+                                    self.args.global_buffer[key] = getattr(self, v)
+                                    self.logger.info('update global_buffer (current length: {}), key: {}'.format(len(self.args.global_buffer), key))
 
         if not self.enable:
             return None
