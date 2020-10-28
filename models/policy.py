@@ -105,9 +105,22 @@ def deploy_on_init(model, filename, verbose=print):
     for p in policies:
         attributes = p
         assert isinstance(attributes, dict), "Error attributes"
+        index = 0
         for m in model.modules():
             if hasattr(m, 'update_norm_quantization_parameter'):
                 m.update_norm_quantization_parameter(**attributes)
+                index = index + 1
+
+    # eltwise layer
+    policies = read_policy(filename, 'eltwise', verbose=verbose)
+    verbose("loading 'eltwise' section of policy")
+    verbose(policies)
+    for p in policies:
+        attributes = p
+        assert isinstance(attributes, dict), "Error attributes"
+        for m in model.modules():
+            if hasattr(m, 'update_eltwise_quantization_parameter'):
+                m.update_eltwise_quantization_parameter(**attributes)
 
 def deploy_on_epoch(model, policies, epoch, optimizer=None, verbose=print):
     if not hasattr(model, 'modules'):
