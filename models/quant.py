@@ -97,6 +97,7 @@ class quantization(nn.Module):
         if 'proxquant' in getattr(self.args, 'keyword', []):
             self.prox = 0
 
+        self.stable = getattr(args, 'stable', 0)
         self.iteration = nn.Parameter(torch.zeros(1), requires_grad=False)
         self.level_num = nn.Parameter(torch.zeros(1), requires_grad=False)
         self.progressive = False
@@ -387,7 +388,7 @@ class quantization(nn.Module):
                     if self.correlate > 0:
                         max_value = max_value * self.correlate
                     self.clip_val.fill_(max_value)
-                    if self.iteration.data == self.args.stable:
+                    if self.iteration.data == self.stable:
                         self.logger.info('update %s clip_val for index %d to %r' % (self.tag, self.index, self.clip_val))
         return
 
@@ -413,7 +414,7 @@ class quantization(nn.Module):
             self.basis.data = self.basis.data / self.iteration
 
     def quantization_value(self, x, y):
-        if self.iteration.data <= self.args.stable:
+        if self.iteration.data <= self.stable:
             self.init_based_on_warmup(x)
             return x
         elif 'proxquant' in self.args.keyword:
