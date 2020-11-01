@@ -41,8 +41,8 @@ class quantization(nn.Module):
         self.num_levels = getattr(args, tag + '_level', None)
         self.half_range = getattr(args, tag + '_half_range', None)
         self.scale = getattr(args, tag + '_scale', 0.5)
-        self.ratio = getattr(args, tag + '_ratio', 1)
-        self.correlate = getattr(args, tag + '_correlate', -1)
+        self.ratio = getattr(args, tag + '_ratio', 1.0)
+        self.correlate = getattr(args, tag + '_correlate', -1.0)
         self.quant_group = getattr(args, tag + '_quant_group', None)
         self.boundary = getattr(self.args, self.tag + '_boundary', None)
         if self.bit is None:
@@ -387,7 +387,9 @@ class quantization(nn.Module):
                 if hasattr(self, 'clip_val') and isinstance(self.clip_val, torch.Tensor):
                     if self.correlate > 0:
                         max_value = max_value * self.correlate
-                    self.clip_val.fill_(max_value)
+                    self.clip_val.data = max_value + (self.iteration - 1) * self.clip_val.data
+                    self.clip_val.div_(self.iteration.item())
+                    #self.clip_val.fill_(max_value)
                     if self.iteration.data == self.stable:
                         self.logger.info('update %s clip_val for index %d to %r' % (self.tag, self.index, self.clip_val))
         return
