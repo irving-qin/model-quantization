@@ -568,6 +568,8 @@ class quantization(nn.Module):
                     y = 2 * self.quant.apply(y, self.num_levels, self.clip_val, self.adaptive) - 1
                 if 'gamma' in self.args.keyword or 'wt_gamma' in self.args.keyword:
                     y = y * self.gamma
+                if 'adaptive-restore' in self.args.keyword and self.adaptive == 'var-mean':
+                    y = y * (std + __EPS__) + mean
             else:
                 raise RuntimeError("Should not reach here for Dorefa-Net method")
 
