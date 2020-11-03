@@ -3,20 +3,20 @@
 ## Install
 
 1. Clone the repo (change the `FASTDIR` as perfered):
-   ```
-   export FASTDIR=/workspace
-   cd $FASTDIR/git/
-   git clone https://github.com/blueardour/model-quantization
-   git clone https://github.com/blueardour/pytorch-utils
-   cd model-quantization
-   ln -s ../pytorch-utils utils
-   
-   # create separate log and weight folders (optional, if symbol link not created, the script will create these folders under the project path)
-   #mkdir -p /data/pretrained/pytorch/model-quantization/{exp,weights}
-   #ln -s /data/pretrained/pytorch/model-quantization/exp .
-   #ln -s /data/pretrained/pytorch/model-quantization/weights .
-   ```
-   
+```
+export FASTDIR=/workspace
+cd $FASTDIR/git/
+git clone https://github.com/aim-uofa/model-quantization
+git clone https://github.com/blueardour/pytorch-utils
+cd model-quantization
+ln -s ../pytorch-utils utils
+
+# create separate log and weight folders (optional, if symbol link not created, the script will create these folders under the project path)
+#mkdir -p /data/pretrained/pytorch/model-quantization/{exp,weights}
+#ln -s /data/pretrained/pytorch/model-quantization/exp .
+#ln -s /data/pretrained/pytorch/model-quantization/weights .
+```
+
 2. Install prerequisite packages
    ```
    cd $FASTDIR/git/model-quantization
