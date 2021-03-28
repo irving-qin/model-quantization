@@ -11,8 +11,8 @@ This project provides aboundant choices of quantization strategies (such as the 
 
 ## Update History
 
-- Super Resolution (in preparing)
-- Text parsing (in preparing)
+- 2020.12.12 Text parsing
+- 2020.11.01 Super Resolution
 - 2020.07.08 Instance Segmentation
 - 2020.07.08 Object Detection
 - 2020.06.23 Add classification quantization
@@ -35,7 +35,7 @@ For quantized object detection, please cite
 ```
 @misc{liu2020aqd,
     title={AQD: Towards Accurate Quantized Object Detection},
-    author={Jing Liu and Bohan Zhuang and Peng Chen and Mingkui Tan and Chunhua Shen},
+    author={Peng Chen, Jing Liu, Bohan Zhuang, Mingkui Tan and Chunhua Shen},
     year={2020},
     eprint={2007.06919},
     archivePrefix={arXiv}
