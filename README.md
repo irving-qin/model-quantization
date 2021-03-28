@@ -26,7 +26,7 @@ Please cite the following work if you find the project helpful.
 author = {Peng Chen, Bohan Zhuang, Jing Liu and Chunlei Liu},
 title = {{QTool: A low-bit quantization toolbox for deep neural networks in computer vision}},
 year = {2020},
-howpublished = {\url{https://github.com/blueardour/model-quantization}},
+howpublished = {\url{https://github.com/aim-uofa/model-quantization}},
 note = {Accessed: [Insert date here]}
 }
 ```

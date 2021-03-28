@@ -6,7 +6,7 @@
 ```
 export FASTDIR=/workspace
 cd $FASTDIR/git/
-git clone https://github.com/aim-uofa/model-quantization # clone based on 'https://github.com/aim-uofa/model-quantization'. Might not avaiable for public currently
+git clone https://github.com/aim-uofa/model-quantization # copy based on 'https://github.com/blueardour/model-quantization'. Might not avaiable for public currently
 git clone https://github.com/blueardour/pytorch-utils
 cd model-quantization
 ln -s ../pytorch-utils utils
