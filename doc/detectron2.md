@@ -9,7 +9,8 @@ The framework is able to provide quantization support for all kinds of tasks tha
 2. download the [Quantization version of detectron2](https://github.com/blueardour/detectron2) project. See [what is modified below](./detectron2.md#what-is-modified-in-the-detectron2-project).
 
    ```
-   cd /workspace/git/
+   export FASTDIR=/workspace # change the FASTDIR as perfered
+   cd $FASTDIR/git/
    git clone https://github.com/blueardour/detectron2
    # checkout the quantization branch
    cd detectron2
@@ -31,7 +32,7 @@ The framework is able to provide quantization support for all kinds of tasks tha
    Facebook detectron2 does not support some works such as `FCOS` and `Blendmask`. Try the [quantization version of aim-uofa/AdelaiDet](https://github.com/blueardour/AdelaiDet) for more tasks.
    
    ```
-   cd /workspace/git/
+   cd $FASTDIR/git/
    git clone https://github.com/blueardour/AdelaiDet AdelaiDet
    # notice to change to the quantization branch
    cd AdelaiDet
@@ -48,9 +49,9 @@ The framework is able to provide quantization support for all kinds of tasks tha
 
 3. make sure the symbolic link is correct.
    ```
-   cd /workspace/git/detectron2
+   cd $FASTDIR/git/detectron2
    ls -l third_party
-   # the third_party/quantization should point to /workspace/git/model-quantization/models
+   # the third_party/quantization should point to $FASTDIR/git/model-quantization/models
    ```
 
 ## Dataset
@@ -59,11 +60,13 @@ The framework is able to provide quantization support for all kinds of tasks tha
 
 ## Pretrained models and quantization results
 
+Configration to finetune the quantization models and pretrained weights will be gradually released.
+
 - [Detection](./result_det.md)
 
 - [Segmentation](./result_seg.md)
 
-We provide pretrained models gradually in [google drive](https://drive.google.com/drive/folders/1vwxth9UB8AMbYP7cJxaWE9S0z9fueZ5J?usp=sharing)
+We provide pretrained models in [google drive](https://drive.google.com/drive/folders/1vwxth9UB8AMbYP7cJxaWE9S0z9fueZ5J?usp=sharing)
 
 ## What is modified in the detectron2 project
 
@@ -100,7 +103,7 @@ We provide pretrained models gradually in [google drive](https://drive.google.co
 
   Training and testing methods follow original projects ( [detectron2](https://github.com/facebookresearch/detectron2) or [aim-uofa/AdelaiDet](https://github.com/aim-uofa/AdelaiDet) ).
   
-  To obtain the quantization version of the given models, please modify corresponding configuration files by setting quantization related options introduced in the quantization versions of projects. Example of the configurations for quantization are provided in `detectron2/config` and `AdelaiDet/config`, respectively. To learn how the newly introduced options impact the quantization procedure, refer option introduction in [classification.md](./classification.md#Training-script-options) for more detail explanation. We also give an advised flow for the model quanzation, see below [guide](./detectron2.md#special-guide-for-quantization) and [examples](./detectron2.md#Examples) for demonstration.
+  To obtain the quantization version of the given models, please modify corresponding configuration files by setting quantization related options introduced in the quantization versions of projects. Example of the configurations for quantization are provided in `detectron2/config` and `AdelaiDet/config`, respectively. To learn how the newly introduced options impact the quantization procedure, refer option introduction in [classification.md](./classification.md#Training-script-options) for more detail explanation. We also give an sugggested instruction for the model quanzation, see below [guide](./detectron2.md#special-guide-for-quantization) and [examples](./detectron2.md#Examples) for demonstration.
 
 ## Special guide for quantization
 
@@ -110,6 +113,7 @@ We provide pretrained models gradually in [google drive](https://drive.google.co
 
   Refer the saved model as `backbone_full.pt`
 
+<del> 
 - Finetune the low-bit backbone network
 
   Refer [classification.md](./classification.md) for finetuning with `backbone_full.pt` as initialization.
@@ -124,7 +128,10 @@ We provide pretrained models gradually in [google drive](https://drive.google.co
   
   Refer the saved model as `overall_full.pt`
  
-- Finetune the low-bit model with double pass initialization (`overall_full.pt` and `backbone_low.pt`) or single pass initialization (`overall_full.pt`).
+- Finetune the low-bit model with double-pass initialization (`overall_full.pt` and `backbone_low.pt`) or single pass initialization (`overall_full.pt`).
+</del>
+
+- Double-pass initialization is latter found no benefit.
 
 ## Examples
 
@@ -132,7 +139,7 @@ We provide pretrained models gradually in [google drive](https://drive.google.co
   
 - ResNet18-FCOS 2-bit Quantization with LSQ
 
-  - Pretrain the full-precision and 2-bit backbone in the [`model-quantization`](https://github.com/blueardour/model-quantization) project. We provide pretrained models in [above  download links](./detectron2.md#Pretrained-models-and-quantization-results). Prepare your own model if other backbones are required. For ResNet-18, the pretrained model can be found in folder: a. Full precision model: `weights/pytorch-resnet18/resnet18_w32a32.pth`. b. 2-bit LSQ model: `weights/pytorch-resnet18/lsq_best_model_a2w2.pth`
+  - Pretrain the full-precision <del> and 2-bit backbone in the [`model-quantization`](https://github.com/blueardour/model-quantization) project. We provide pretrained models in [above  download links](./detectron2.md#Pretrained-models-and-quantization-results). Prepare your own model if other backbones are required. For ResNet-18, the pretrained model can be found in folder: a. Full precision model: `weights/pytorch-resnet18/resnet18_w32a32.pth`. b. 2-bit LSQ model: `weights/pytorch-resnet18/lsq_best_model_a2w2.pth` </del>
    
   - Import model from classification project to detection project.
 
@@ -173,7 +180,7 @@ We provide pretrained models gradually in [google drive](https://drive.google.co
     python tools/train_net.py --config configs/FCOS-Detection/R_18_1x-Full-SyncBN-lsq-2bit.yaml
     ```
     
-    ***Check the parameters in double pass initialization are re-loaded correctly***
+    ***Check the parameters in double-pass initialization are re-loaded correctly***
     
     Compare the accuracy with the one in step 3.
   
