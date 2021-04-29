@@ -73,7 +73,7 @@ class quantization(nn.Module):
             self.quant_group = shape[0] if self.tag == 'wt' else 1
             ## channel wise for both
             #self.quant_group = shape[0] if self.tag == 'wt' else shape[1]
-        self.norm_group = 1 if 'independent_norm' in getattr(self.args, 'keyword') else self.quant_group
+        self.norm_group = 1 if 'independent_norm' in getattr(self.args, 'keyword', []) else self.quant_group
 
         if not self.enable:
             return
@@ -693,6 +693,10 @@ def conv1x1(in_planes, out_planes, stride=1, groups=1, padding=0, bias=False, ar
 def conv0x0(in_planes, out_planes, stride=1, groups=1, padding=0, bias=False, args=None, force_fp=False, feature_stride=1, keepdim=True):
     "nop"
     return nn.Sequential()
+
+def qconv(in_planes, out_planes, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=False, args=None, force_fp=False, feature_stride=1, keepdim=True):
+    return custom_conv(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding, groups=groups, dilation=dilation, bias=bias,
+            args=args, force_fp=force_fp, feature_stride=feature_stride)
 
 class custom_linear(nn.Linear):
     def __init__(self, in_channels, out_channels, dropout=0, bias=True, args=None):
