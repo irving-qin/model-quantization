@@ -119,6 +119,9 @@ def norm(channel, eps=1e-5, args=None, keyword=None, feature_stride=None, affine
     if "reverse-bn" in keyword:
         return ReverseBatchNorm2d(channel)
 
+    if "sync-bn" in keyword:
+        return nn.SyncBatchNorm(channel)
+
     if "instance-norm" in keyword:
         return nn.InstanceNorm2d(channel, affine=affine)
 
