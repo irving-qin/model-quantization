@@ -28,7 +28,8 @@ class quantization(nn.Module):
             if hasattr(args, 'logger'):
                 self.logger = args.logger
             else:
-                self.logger = logging.getLogger(__name__)
+                logger_root = args.logger_root + '.' if hasattr(args, 'logger_root') else ''
+                self.logger = logging.getLogger(logger_root + __name__)
 
         self.shape = shape
         self.feature_stride = feature_stride
