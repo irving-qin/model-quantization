@@ -176,19 +176,19 @@ class quantization(nn.Module):
         if 'dorefa' in self.args.keyword or 'pact' in self.args.keyword:
             self.method = 'dorefa'
             self.gamma = 1
-            assert 'gamma' not in self.args.keyword, "Keyword corrupted~"
 
             if self.boundary is None:
                 self.boundary = 1.0
                 self.logger.info('update %s_boundary %r' % (self.tag, self.boundary))
             self.grad_factor = {
-                    'none': 1,
+                    'none': 1.0,
                     'fan-scale': np.sqrt(self.fan) * self.scale,
                     'scale-fan': self.scale / np.sqrt(self.fan),
                     'element-scale': np.sqrt(self.nElements) * self.scale,
                     'scale-element': self.scale / np.sqrt(self.nElements),
                     }[self.grad_scale]
-            self.logger.info('update %s_grad_scale %f, nElements: %d' % (self.tag, self.grad_factor, self.nElements))
+            self.logger.info('update %s_grad_factor %f ( == 1 ? %s)' % 
+                (self.tag, self.grad_factor, 'True' if self.grad_factor == 1 else 'False' ))
 
             if self.tag == 'fm':
                 if 'lsq' in self.args.keyword or 'fm_lsq' in self.args.keyword:
@@ -254,12 +254,20 @@ class quantization(nn.Module):
                 elif 'wt_bin' in self.args.keyword and self.num_levels == 2:
                     self.quant = dorefa.DorefaParamsBinarizationSTE
                     self.choice = 'DorefaParamsBinarizationSTE'
-                else:
+                elif 'pact' in self.args.keyword:
                     self.quant = dorefa.qfn
                     self.clip_val = self.boundary
                     self.choice = 'dorefa-net'
+                else:
+                    self.choice = 'normalization'
                 if 'gamma' in self.args.keyword or 'wt_gamma' in self.args.keyword:
-                    self.gamma = nn.Parameter(torch.ones(self.quant_group, 1, 1, 1))
+                    if 'wt_gamma_in' in self.args.keyword:
+                        self.gamma = np.sqrt(2 / self.shape[1])
+                    elif 'wt_gamma_out' in self.args.keyword:
+                        self.gamma = np.sqrt(2 / self.shape[0])
+                    elif 'wt_gamma_learnable' in self.args.keyword:
+                        self.gamma = nn.Parameter(torch.ones(self.quant_group, 1, 1, 1))
+                        self.gamma.data.fill_(np.sqrt(2 / self.shape[0]))
                     self.choice = self.choice + '-with-gamma'
             elif self.tag == 'ot':
                 if 'lsq' in self.args.keyword or 'ot_lsq' in self.args.keyword:
@@ -285,6 +293,7 @@ class quantization(nn.Module):
 
 
         if 'xnor' in self.args.keyword:
+            self.method = 'xnor'
             if self.tag == 'fm':
                 self.quant_fm = xnor.XnorActivation
                 if 'debug' in self.args.keyword:
@@ -564,12 +573,15 @@ class quantization(nn.Module):
                     x = x.reshape(c1, c2, kh, kw)
                 elif 'wt_bin' in self.args.keyword and self.num_levels == 2:
                     y = self.quant.apply(x, self.adaptive)
-                else:
+                elif 'wt_dorefa' in self.args.keyword:
                     y = torch.tanh(x)
                     y = y / (2 * y.abs().max()) + 0.5
                     y = 2 * self.quant.apply(y, self.num_levels, self.clip_val, self.adaptive) - 1
+                else:
+                    y = x
                 if 'gamma' in self.args.keyword or 'wt_gamma' in self.args.keyword:
                     y = y * self.gamma
+                    x = x * self.gamma
                 if self.adaptive_restore and self.adaptive == 'var-mean':
                     y = y * (std + __EPS__) + mean
             else:
