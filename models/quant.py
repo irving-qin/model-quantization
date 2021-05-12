@@ -543,7 +543,12 @@ class quantization(nn.Module):
                     y = y * self.gamma
             elif self.tag == 'wt':
                 if self.adaptive == 'var-mean':
-                    std, mean = torch.std_mean(x.data.reshape(self.norm_group, -1, 1, 1, 1), 1)
+                    if hasattr(torch, 'std_mean'):
+                        std, mean = torch.std_mean(x.data.reshape(self.norm_group, -1, 1, 1, 1), 1)
+                    else:
+                        _data = x.data.reshape(self.norm_group, -1, 1, 1, 1)
+                        std = torch.std(_data, 1)
+                        mean = torch.mean(_data, 1)
                     x = (x - mean) / (std + __EPS__)
                 if 'lsq' in self.args.keyword or 'wt_lsq' in self.args.keyword:
                     clip_val = dorefa.GradientScale(self.clip_val.abs(), self.grad_factor)
