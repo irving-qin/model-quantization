@@ -127,7 +127,7 @@ def norm(channel, eps=1e-5, args=None, keyword=None, feature_stride=None, affine
 
     return nn.BatchNorm2d(channel)
 
-def actv(args=None, negative_slope=0.01):
+def actv(args=None, negative_slope=0.01, clip_at=None):
     keyword = None
     if args is not None:
         keyword = getattr(args, "keyword", None)
