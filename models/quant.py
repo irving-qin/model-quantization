@@ -98,7 +98,7 @@ class quantization(nn.Module):
         if 'proxquant' in getattr(self.args, 'keyword', []):
             self.prox = 0
 
-	self.stable = getattr(args, self.tag + '_stable', 0)
+        self.stable = getattr(args, self.tag + '_stable', 0)
         if self.stable < 0:
             self.stable = getattr(args, 'stable', 0)
 
