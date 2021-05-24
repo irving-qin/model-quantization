@@ -178,7 +178,7 @@ class quantization(nn.Module):
 
         if 'dorefa' in self.args.keyword or 'pact' in self.args.keyword:
             self.method = 'dorefa'
-            self.gamma = 1
+            self.gamma = 1.
 
             if self.boundary is None:
                 self.boundary = 1.0
