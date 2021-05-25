@@ -16,7 +16,7 @@ if sys.version_info[0] == 3:
 __EPS__ = 0 #1e-5
 
 class quantization(nn.Module):
-    def __init__(self, args=None, tag='fm', shape=[], feature_stride=None, logger=None):
+    def __init__(self, args=None, tag='fm', shape=[], feature_stride=None, logger=None, groups=1):
         super(quantization, self).__init__()
         self.args = args
         self.logger = logger
@@ -56,6 +56,7 @@ class quantization(nn.Module):
         else:
             self.half_range = bool(self.half_range)
 
+        self.grain = groups if 'grain' in getattr(self.args, 'keyword', []) else 1
         if self.quant_group == 0:
             self.quant_group = None
         if self.quant_group is not None:
@@ -265,9 +266,9 @@ class quantization(nn.Module):
                     self.choice = 'normalization'
                 if 'gamma' in self.args.keyword or 'wt_gamma' in self.args.keyword:
                     if 'wt_gamma_in' in self.args.keyword:
-                        self.gamma = np.sqrt(2 / self.shape[1])
+                        self.gamma = np.sqrt(2 / (self.shape[1] // self.grain))
                     elif 'wt_gamma_out' in self.args.keyword:
-                        self.gamma = np.sqrt(2 / self.shape[0])
+                        self.gamma = np.sqrt(2 / (self.shape[0] // self.grain))
                     elif 'wt_gamma_learnable' in self.args.keyword:
                         self.gamma = nn.Parameter(torch.ones(self.quant_group, 1, 1, 1))
                         self.gamma.data.fill_(np.sqrt(2 / self.shape[0]))
@@ -644,8 +645,8 @@ class custom_conv(nn.Conv2d):
         if not self.force_fp:
             self.pads = padding
             self.padding = (0, 0)
-            self.quant_activation = quantization(args, 'fm', [1, in_channels, 1, 1], feature_stride=feature_stride)
-            self.quant_weight = quantization(args, 'wt', [out_channels, in_channels, kernel_size, kernel_size])
+            self.quant_activation = quantization(args, 'fm', [1, in_channels, 1, 1], feature_stride=feature_stride, groups=groups)
+            self.quant_weight = quantization(args, 'wt', [out_channels, in_channels, kernel_size, kernel_size], groups=groups)
             self.quant_output = quantization(args, 'ot', [1, out_channels, 1, 1])
             self.padding_after_quant = getattr(args, 'padding_after_quant', False) if args is not None else False
             assert self.padding_mode != 'circular', "padding_mode of circular is not supported yet"
