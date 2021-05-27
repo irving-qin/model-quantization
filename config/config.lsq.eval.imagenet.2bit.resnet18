@@ -1,0 +1,23 @@
+
+dataset='imagenet'
+root=$FASTDIR/data/imagenet
+
+model='resnet18'
+
+train_batch=256
+val_batch=50
+
+case='imagenet-lsq-finetune-2bit_sgd'
+keyword='debug,imagenet,origin,cbsa,fix_pooling,singleconv,fix,dorefa,lsq'
+
+# download from https://drive.google.com/file/d/1vxEZmG1rBI9-bBBX_p_yOTbe85viPfR2/view?usp=sharing
+pretrained='imagenet-finetune-2bit-model_best.pth.tar'
+options="$options --pretrained $pretrained"
+
+ options="$options -e"
+
+ options="$options --fm_bit 2 --fm_enable"
+ options="$options --wt_bit 2 --wt_enable"
+ options="$options --fm_quant_group 1"
+ options="$options --wt_quant_group 1"
+ options="$options --wt_adaptive var-mean"
