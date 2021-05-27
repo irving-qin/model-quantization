@@ -106,6 +106,7 @@ We provide pretrained models in [google drive](https://drive.google.com/drive/fo
   To obtain the quantization version of the given models, please modify corresponding configuration files by setting quantization related options introduced in the quantization versions of projects. Example of the configurations for quantization are provided in `detectron2/config` and `AdelaiDet/config`, respectively. To learn how the newly introduced options impact the quantization procedure, refer option introduction in [classification.md](./classification.md#Training-script-options) for more detail explanation. We also give an sugggested instruction for the model quanzation, see below [guide](./detectron2.md#special-guide-for-quantization) and [examples](./detectron2.md#Examples) for demonstration.
 
 <del> 
+
 ## Special guide for quantization
 
   The overall flow of the quantization on detection/ segmentation / text spotting tasks are as follows, some of them can be omitted if the pretrained model already exists.
@@ -131,6 +132,7 @@ We provide pretrained models in [google drive](https://drive.google.com/drive/fo
 - Finetune the low-bit model with double-pass initialization (`overall_full.pt` and `backbone_low.pt`) or single pass initialization (`overall_full.pt`).
 
 - Double-pass initialization is latter found no benefit.
+
 </del>
 
 ## Examples
@@ -140,16 +142,14 @@ We provide pretrained models in [google drive](https://drive.google.com/drive/fo
 - ResNet18-FCOS 2-bit Quantization with LSQ
 
 <del>
+
   - Pretrain the full-precision and 2-bit backbone in the [`model-quantization`](https://github.com/blueardour/model-quantization) project. We provide pretrained models in [above  download links](./detectron2.md#Pretrained-models-and-quantization-results). Prepare your own model if other backbones are required. For ResNet-18, the pretrained model can be found in folder: a. Full precision model: `weights/pytorch-resnet18/resnet18_w32a32.pth`. b. 2-bit LSQ model: `weights/pytorch-resnet18/lsq_best_model_a2w2.pth`
+
  </del>
 
   - [optional] Import Pytorch ResNet-18 pretrained model
 
-    The default ResNet in detectron is MSRA-ResNet version, a little different with Facebook pytorch version.
-
-    Import model from classification project to detection project.
-
-    Script:
+    The default ResNet in detectron is MSRA-ResNet version, a little different with Facebook pytorch version. Import model from classification project to detection project. Script:
   
     ```
     cd /workspace/git/model-quantization
@@ -162,9 +162,7 @@ We provide pretrained models in [google drive](https://drive.google.com/drive/fo
 
   - Train full-precision FCOS-R18-1x
 
-    There are some minor revisions on the architecture compared to official ones, such as additional ReLU layers.
-
-    Check the configuration file `configs/FCOS-Detection/R_18_1x-Full-SyncBN-FixFPN.yaml`
+    There are some minor revisions on the architecture compared to official ones, such as additional ReLU layers. Check the configuration file `configs/FCOS-Detection/R_18_1x-Full-SyncBN-FixFPN.yaml`
   
     ```
     cd /workspace/git/AdelaiDet
