@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import logging
 import numpy as np
+from functools import partial
 
 from .quant import conv3x3, conv1x1, conv0x0
 from .layers import norm, actv, TResNetStem, concat
@@ -142,7 +143,7 @@ class BasicBlock(nn.Module):
                 logging.warning("force extra padding of {} is added".format(extra_padding))
 
         # downsample branch
-        self.enable_skip = stride != 1 or inplanes != planes or 'identify_norm' in args.keyword
+        self.enable_skip = stride != 1 or inplanes != planes or 'identity_norm' in args.keyword
         real_skip = 'real_skip' in args.keyword
         downsample = []
         if stride != 1:
@@ -167,7 +168,7 @@ class BasicBlock(nn.Module):
                 downsample.append(norm(planes, args, feature_stride=feature_stride*stride))
                 if 'fix' not in args.keyword:
                     downsample.append(actv(args))
-        elif 'identify_norm' in args.keyword:
+        elif 'identity_norm' in args.keyword:
             downsample.append(norm(inplanes, args))
         if 'singleconv' in args.keyword: # pytorch official branch employ single convolution layer
             for i, n in enumerate(downsample):
@@ -324,7 +325,7 @@ class BottleNeck(nn.Module):
         # Prone network off
 
         # downsample branch
-        self.enable_skip = stride != 1 or inplanes != planes * self.expansion or 'identify_norm' in args.keyword
+        self.enable_skip = stride != 1 or inplanes != planes * self.expansion or 'identity_norm' in args.keyword
         real_skip = 'real_skip' in args.keyword
         downsample = []
         if stride != 1:
@@ -343,7 +344,7 @@ class BottleNeck(nn.Module):
                 downsample.append(norm(planes * self.expansion, args))
                 if 'fix' not in args.keyword:
                     downsample.append(actv(args))
-        elif 'identify_norm' in args.keyword:
+        elif 'identity_norm' in args.keyword:
             downsample.append(norm(inplanes, args))
         if 'singleconv' in args.keyword:
             for i, n in enumerate(downsample):

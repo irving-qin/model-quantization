@@ -9,6 +9,9 @@ Note that the performance among different methods is obtained based on different
 
 We provide pretrained models in [google drive](https://drive.google.com/drive/folders/1vwxth9UB8AMbYP7cJxaWE9S0z9fueZ5J?usp=sharing). Report missing pretrained model files if you cannot find it. 
 
+Try the 67.8\% Top-1 LSQ quantization for ResNet-18 `bash train.sh ../config/config.lsq.eval.imagenet.2bit.resnet18`.
+
+
 Dataset | Method | Model | A/W | Reported | Top-1  | Flags | Config
 --- |:---:|:---:|:---:|:---:|:---:|:---:|:---:
 imagenet | - | ResNet-18 | 32/32 | - | 70.1 | PreBN,bacs | [File](../config/config.dorefa.eval.imagenet.fp.resnet18)
@@ -32,6 +35,7 @@ imagenet | LSQ | Torch-R18 | t/t | - | 65.1 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sg
 imagenet | LSQ | Torch-R34 | t/t | - | 69.2 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
 imagenet | LSQ | Torch-R50 | t/t | - | 72.6 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
 imagenet | LSQ | Torch-R18 | 2/2 | - | 66.9 | wd2.5e-5,wt_qg=1_var-mean,ns,ds,sgd_0,fp32,ep90
+imagenet | LSQ | ResNet-18 | 2/2 | - | 67.8 | wd2.5e-5,wt_qg=1_var-mean,sgd_1,fp32,ep90,kd | [File](../config/config.lsq.eval.imagenet.2bit.resnet18)
 imagenet | non-uniform | Torch-R18 | 2/2 | - | 66.8 | wd2.5e-5,sc3.0,wt_qg=1_var-mean,ns,ds,clrd,sgd_0,fp32,ep90
 imagenet | non-uniform | Torch-R18 | 2/2 | - | 65.5 | wd2e-5,sc3.0,wt_qg=1_var-mean,ns,ds,sgd_2,fp32,ep40
 dali | non-uniform | Torch-R18 | 2/2 | - | 65.8 | wd2e-5,sc3.0,wt_qg=1,ns,ds,sgd_2,fp16,ep40
