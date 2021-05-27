@@ -9,7 +9,7 @@ Note that the performance among different methods is obtained based on different
 
 We provide pretrained models in [google drive](https://drive.google.com/drive/folders/1vwxth9UB8AMbYP7cJxaWE9S0z9fueZ5J?usp=sharing). Report missing pretrained model files if you cannot find it. 
 
-Try the 67.8\% Top-1 LSQ quantization for ResNet-18 `bash train.sh ../config/config.lsq.eval.imagenet.2bit.resnet18`.
+Try the 67.8\% Top-1 LSQ quantization for ResNet-18 `bash train.sh config/config.lsq.eval.imagenet.2bit.resnet18`.
 
 
 Dataset | Method | Model | A/W | Reported | Top-1  | Flags | Config
