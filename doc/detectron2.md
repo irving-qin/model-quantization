@@ -147,9 +147,9 @@ We provide pretrained models in [google drive](https://drive.google.com/drive/fo
 
  </del>
 
-  - [optional] Import Pytorch ResNet-18 pretrained model
+  - [optional] Import custom pretrained backbone
 
-    The default ResNet in detectron is MSRA-ResNet version, a little different with Facebook pytorch version. Import model from classification project to detection project. Script:
+    If custom backbone is pretrained on imagenet classification. Import the weight parameters to detection project. Script:
   
     ```
     cd /workspace/git/model-quantization
