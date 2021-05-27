@@ -10,7 +10,7 @@
    
 3. Some words in the filename or config file are misspelled and we revise them anytime we found one. Thus, latency files might suffer from 'not-found' error. Check the filename if meeting such a situation. 
 
-4. Pytorch version mismatch
+4. Pytorch version mismatch. Please upgrade pytorch version.
 
    a. error when loading pretrained model
    
