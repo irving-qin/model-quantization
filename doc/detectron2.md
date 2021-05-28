@@ -149,7 +149,7 @@ We provide pretrained models in [google drive](https://drive.google.com/drive/fo
 
   - [optional] Import custom pretrained backbone
 
-    If custom backbone is pretrained on imagenet classification. Import the weight parameters to detection project. Script:
+    If custom backbone is pretrained on imagenet classification. Import the weight parameters to detection project. For example, if taking the pytorch ResNet (rather than MSRA ResNet) as the backbone, run script:
   
     ```
     cd /workspace/git/model-quantization
