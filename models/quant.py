@@ -247,6 +247,7 @@ class quantization(nn.Module):
                     self.clip_val.data.fill_(self.boundary)
                     self.quant = dorefa.LSQ
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
+                    assert self.half_range == False
                     self.choice = 'lsq'
                     if 'symmetry' in self.args.keyword:
                         assert self.bit > 1, "symmetry mode is only for bit greater than 1"
