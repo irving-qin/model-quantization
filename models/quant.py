@@ -243,12 +243,14 @@ class quantization(nn.Module):
                 if 'lsq' in self.args.keyword or 'wt_lsq' in self.args.keyword:
                     if self.shape[0] == 1 and self.quant_group != 1:  ## linear
                         raise RuntimeError("Quantization-{} for linear layer not provided".format(self.tag))
-                    #else:
                     self.clip_val = nn.Parameter(torch.zeros(self.quant_group, 1, 1, 1))
                     self.clip_val.data.fill_(self.boundary)
                     self.quant = dorefa.LSQ
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
                     self.choice = 'lsq'
+                    if 'symmetry' in self.args.keyword:
+                        assert self.bit > 1, "symmetry mode is only for bit greater than 1"
+                        self.choice = self.choice + "-symmetry"
                 elif 'non-uniform' in self.args.keyword or 'wt_non-uniform' in self.args.keyword:
                     self.quant = dorefa.RoundSTE
                     self.clamp = dorefa.ClampWithScale if self.grad_type in ['STE-scale'] else torch.clamp
@@ -538,9 +540,12 @@ class quantization(nn.Module):
                     else:
                         y = x / clip_val
                         y = self.clamp(y, min=-1, max=1)
-                        y = (y + 1.0) / 2.0
-                        y = self.quant.apply(y, self.level_num.item() - 1)
-                        y = y * 2.0 - 1.0
+                        if 'symmetry' in self.args.keyword:
+                            y = self.quant.apply(y, self.level_num.item() / 2 - 1)
+                        else:
+                            y = (y + 1.0) / 2.0
+                            y = self.quant.apply(y, self.level_num.item() - 1)
+                            y = y * 2.0 - 1.0
                         y = y * clip_val
                 elif 'non-uniform' in self.args.keyword or '{}_non-uniform'.format(self.tag) in self.args.keyword:
                     b, c, h, w = x.shape
