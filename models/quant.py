@@ -77,6 +77,9 @@ class quantization(nn.Module):
             #self.quant_group = shape[0] if self.tag == 'wt' else shape[1]
         self.norm_group = 1 if 'independent_norm' in getattr(self.args, 'keyword', []) else self.quant_group
 
+        self.repeat_mark = 0
+        self.input_index = ""
+
         if not self.enable:
             return
 
@@ -126,8 +129,8 @@ class quantization(nn.Module):
         if self.args is None or self.enable == False:
             return "quantization-{}-index({})".format(self.tag, self.index)
         else:
-            return "quantization-{}-index({})-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})".format(
-                    self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group)
+            return "quantization-{}-index({})-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})-input({})".format(
+                    self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group, self.input_index)
 
     def init(self):
         # for LQ-Net
@@ -345,6 +348,10 @@ class quantization(nn.Module):
                                     v = float(v)
                                 elif isinstance(getattr(self, k), str):
                                     v = v.replace("'", "").replace('"', '')
+                                    if 'same' in v:
+                                        v = v.replace('same', str(self.index))
+                                    elif "last" in v:
+                                        v = v.replace('last', str(self.index-1))
                                 if isinstance(getattr(self, k), torch.Tensor):
                                     with torch.no_grad():
                                         if self.progressive:
@@ -453,9 +460,51 @@ class quantization(nn.Module):
                     self.args.global_buffer['quant_loss'] = self.quant_loss_function(x, y) * self.quant_loss_alpha
             return y
 
+    def coordinate(self, alpha):
+        scale = [1.0/x if abs(x) < 1.0 else x for x in alpha] 
+
+        error = np.ones_like(alpha)
+        shift = np.zeros_like(alpha)
+        for i in range(16):
+            for idx, frac in enumerate(scale):
+                tmp = frac * pow(2.0, i)
+                cur = abs(round(tmp) - tmp)
+                if cur < error[idx]:
+                    shift[idx] = i
+                    error[idx] = cur
+
+        scaled = [round(s * pow(2., d)) / pow(2., d) for d, s in zip(shift, scale)]
+        scaled = [1.0/x if abs(alpha[i]) < 1.0 else x for i, x in enumerate(scaled)]
+        return np.array(scaled)
+
     def forward(self, x):
         if not self.enable:
             return x
+
+        if 'eval' in self.args.keyword and self.tag == 'fm':
+            assert self.quant_group == 1 and self.method == 'dorefa' and self.half_range
+            input_index_list = self.input_index.split('/')
+            input_index = input_index_list[self.repeat_mark]
+            if input_index in self.args.global_buffer:
+                alpha = self.args.global_buffer[input_index]
+                scaled = self.coordinate(alpha / self.clip_val.cpu().abs().item() * (self.level_num.item() - 1))
+                scaled = scaled / alpha
+                try:
+                    scaled = torch.from_numpy(scaled).to(device=x.device, dtype=x.dtype).reshape(1, -1, 1, 1)
+                except (ValueError, SyntaxError, TypeError) as e:
+                    import pdb
+                    pdb.set_trace()
+                y = torch.round(x.mul(scaled))
+                y = torch.clamp(y, max=(self.level_num.item() - 1))
+                y = y.div((self.level_num.item() - 1) / self.clip_val)
+                return y
+            elif self.input_index == 'skip':
+                pass
+            else:
+                self.logger.warning("Integer only computation for layer {} - repeat mark {} might not supported.".format(self.index, self.repeat_mark))
+            #if self.index in [93]:
+            #    import pdb
+            #    pdb.set_trace()
 
         if self.method == 'lqnet':
             if self.tag == 'fm':

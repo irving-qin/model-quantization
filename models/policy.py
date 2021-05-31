@@ -81,13 +81,15 @@ def deploy_on_init(model, filename, verbose=print):
     if not hasattr(model, 'modules'):
         return
 
+    verbose=print
+
+    # conv / fc layer
     index = 0
     for m in model.modules():
         if hasattr(m, 'update_quantization_parameter'):
             m.update_quantization_parameter(index=index)
             index = index + 1
 
-    # conv / fc layer
     policies = read_policy(filename, 'init', verbose=verbose)
     verbose("loading 'init' section of policy")
     verbose(policies)
@@ -99,6 +101,12 @@ def deploy_on_init(model, filename, verbose=print):
                 m.update_quantization_parameter(**attributes)
 
     # norm layer
+    index = 0
+    for m in model.modules():
+        if hasattr(m, 'update_norm_quantization_parameter'):
+            m.update_norm_quantization_parameter(index=index)
+            index = index + 1
+
     policies = read_policy(filename, 'norm', verbose=verbose)
     verbose("loading 'norm' section of policy")
     verbose(policies)
@@ -112,6 +120,12 @@ def deploy_on_init(model, filename, verbose=print):
                 index = index + 1
 
     # eltwise layer
+    index = 0
+    for m in model.modules():
+        if hasattr(m, 'update_eltwise_quantization_parameter'):
+            m.update_eltwise_quantization_parameter(index=index)
+            index = index + 1
+
     policies = read_policy(filename, 'eltwise', verbose=verbose)
     verbose("loading 'eltwise' section of policy")
     verbose(policies)
@@ -121,6 +135,57 @@ def deploy_on_init(model, filename, verbose=print):
         for m in model.modules():
             if hasattr(m, 'update_eltwise_quantization_parameter'):
                 m.update_eltwise_quantization_parameter(**attributes)
+
+    # shuffle layer
+    index = 0
+    for m in model.modules():
+        if hasattr(m, 'update_shuffle_quantization_parameter'):
+            m.update_shuffle_quantization_parameter(index=index)
+            index = index + 1
+
+    policies = read_policy(filename, 'shuffle', verbose=verbose)
+    verbose("loading 'shuffle' section of policy")
+    verbose(policies)
+    for p in policies:
+        attributes = p
+        assert isinstance(attributes, dict), "Error attributes"
+        for m in model.modules():
+            if hasattr(m, 'update_shuffle_quantization_parameter'):
+                m.update_shuffle_quantization_parameter(**attributes)
+
+    # split layer
+    index = 0
+    for m in model.modules():
+        if hasattr(m, 'update_split_quantization_parameter'):
+            m.update_split_quantization_parameter(index=index)
+            index = index + 1
+
+    policies = read_policy(filename, 'split', verbose=verbose)
+    verbose("loading 'split' section of policy")
+    verbose(policies)
+    for p in policies:
+        attributes = p
+        assert isinstance(attributes, dict), "Error attributes"
+        for m in model.modules():
+            if hasattr(m, 'update_split_quantization_parameter'):
+                m.update_split_quantization_parameter(**attributes)
+
+    # concat layer
+    index = 0
+    for m in model.modules():
+        if hasattr(m, 'update_concat_quantization_parameter'):
+            m.update_concat_quantization_parameter(index=index)
+            index = index + 1
+
+    policies = read_policy(filename, 'concat', verbose=verbose)
+    verbose("loading 'concat' section of policy")
+    verbose(policies)
+    for p in policies:
+        attributes = p
+        assert isinstance(attributes, dict), "Error attributes"
+        for m in model.modules():
+            if hasattr(m, 'update_concat_quantization_parameter'):
+                m.update_concat_quantization_parameter(**attributes)
 
 def deploy_on_epoch(model, policies, epoch, optimizer=None, verbose=print):
     if not hasattr(model, 'modules'):
