@@ -481,7 +481,7 @@ class quantization(nn.Module):
         if not self.enable:
             return x
 
-        if 'eval' in self.args.keyword and self.tag == 'fm':
+        if 'eval' in self.args.keyword and self.tag == 'fm' and 'skip' not in self.input_index:
             assert self.quant_group == 1 and self.method == 'dorefa' and self.half_range
             input_index_list = self.input_index.split('/')
             input_index = input_index_list[self.repeat_mark]
@@ -498,13 +498,8 @@ class quantization(nn.Module):
                 y = torch.clamp(y, max=(self.level_num.item() - 1))
                 y = y.div((self.level_num.item() - 1) / self.clip_val)
                 return y
-            elif self.input_index == 'skip':
-                pass
             else:
                 self.logger.warning("Integer only computation for layer {} - repeat mark {} might not supported.".format(self.index, self.repeat_mark))
-            #if self.index in [93]:
-            #    import pdb
-            #    pdb.set_trace()
 
         if self.method == 'lqnet':
             if self.tag == 'fm':

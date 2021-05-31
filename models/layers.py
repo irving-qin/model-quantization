@@ -178,15 +178,16 @@ class EltWiseModule(torch.nn.Module):
         assert len(alphaX) == len(alphaY)
         alpha = alphaX / alphaY
         scale = np.ones_like(alpha)
+        factor= np.ones_like(alpha)
         for i, x in enumerate(alpha):
             if abs(x) > 1.0:
-                alpha[i] = alphaY[i]
+                factor[i] = alphaY[i]
                 scale[i] = x
             else:
-                alpha[i] = alphaX[i]
+                factor[i] = alphaX[i]
                 scale[i] = 1. / x
         self.verbose("add add-{} to global_buffer".format(self.index))
-        self.args.global_buffer['add-{}'.format(self.index)] = alpha
+        self.args.global_buffer['add-{}'.format(self.index)] = factor
 
         error = np.ones_like(alpha)
         shift = np.zeros_like(alpha)
@@ -199,8 +200,8 @@ class EltWiseModule(torch.nn.Module):
                     error[idx] = cur
 
         scaled = [round(s * pow(2., d)) / pow(2., d) for d, s in zip(shift, scale)]
-        scale_x = [ scaled[i] * alphaY[i] / alphaX[i] if abs(x) > 1.0  else 1.0 for i, x in enumerate(alpha)]
-        scale_y = [ 1./ scaled[i] * alphaX[i] / alphaY[i] if abs(x) <= 1.0 else 1.0 for i, x in enumerate(alpha)]
+        scale_x = [ scaled[i] / x if abs(x) > 1.0 else 1.0 for i, x in enumerate(alpha)]
+        scale_y = [ 1.0 if abs(x) > 1.0 else scaled[i] * x for i, x in enumerate(alpha)]
         return np.array(scale_x), np.array(scale_y)
 
     def coordinate_addition(self, x, y, mark_x=0, mark_y=0):
@@ -384,7 +385,7 @@ class BatchNorm2d(torch.nn.BatchNorm2d):
 
     def forward(self, x):
         if x.numel() > 0:
-            if self.enable:
+            if self.enable and 'skip' not in self.input_index:
                 scale = self.weight * (self.running_var + self.eps).rsqrt()
                 bias = self.bias / scale - self.running_mean
                 input_scale = self.input_scale
