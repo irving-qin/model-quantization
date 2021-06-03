@@ -129,8 +129,11 @@ class quantization(nn.Module):
         if self.args is None or self.enable == False:
             return "quantization-{}-index({})".format(self.tag, self.index)
         else:
-            return "quantization-{}-index({})-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})-input({})".format(
-                    self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group, self.input_index)
+            string = "quantization-{}-index({})-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})-num_levels({})-level_num({})".format(
+                    self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group, self.num_levels, self.level_num.item())
+            if self.input_index != "":
+                string += "-input_index({})".format(self.input_index)
+            return string
 
     def init(self):
         # for LQ-Net
