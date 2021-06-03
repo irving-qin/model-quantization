@@ -129,8 +129,8 @@ class quantization(nn.Module):
         if self.args is None or self.enable == False:
             return "quantization-{}-index({})".format(self.tag, self.index)
         else:
-            string = "quantization-{}-index({})-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})-num_levels({})-level_num({})".format(
-                    self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group, self.num_levels, self.level_num.item())
+            string = "quantization-{}-index({})-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})-num_levels({})-level_num({})-adaptive({})".format(
+                    self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group, self.num_levels, self.level_num.item(), self.adaptive)
             if self.input_index != "":
                 string += "-input_index({})".format(self.input_index)
             return string
