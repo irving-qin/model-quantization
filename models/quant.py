@@ -126,14 +126,13 @@ class quantization(nn.Module):
         return self.__str__()
 
     def __str__(self):
-        if self.args is None or self.enable == False:
-            return "quantization-{}-index({})".format(self.tag, self.index)
-        else:
-            string = "quantization-{}-index({})-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})-num_levels({})-level_num({})-adaptive({})".format(
-                    self.tag, self.index, self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group, self.num_levels, self.level_num.item(), self.adaptive)
-            if self.input_index != "":
-                string += "-input_index({})".format(self.input_index)
-            return string
+        string = "quantization-{}-index({})".format(self.tag, self.index)
+        if self.args is not None and self.enable == True:
+            string = "-enable({})-method({})-choice-({})-half_range({})-bit({})-quant_group({})-num_levels({})-level_num({})-adaptive({})".format(
+                    self.enable, self.method, self.choice, self.half_range, self.bit, self.quant_group, self.num_levels, self.level_num.item(), self.adaptive)
+        if self.input_index != "":
+            string += "-input_index({})".format(self.input_index)
+        return string
 
     def init(self):
         # for LQ-Net
@@ -398,8 +397,6 @@ class quantization(nn.Module):
                     self.quant_loss_function = nn.MSELoss()
                 elif self.quant_loss_function == 'L1':
                     self.quant_loss_function = nn.L1Loss()
-                elif self.quant_loss_function == 'QDL':
-                    self.quant_loss_function = dorefa.Quant_Distribution_Loss()
                 else:
                     self.quant_loss_function = 'none'
             assert self.method != 'none', "quantization enable but without specific method in layer(index:{}, tag:{})".format(self.index, self.tag)
