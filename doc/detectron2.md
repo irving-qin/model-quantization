@@ -184,6 +184,8 @@ We provide pretrained models in [google drive](https://drive.google.com/drive/fo
     python tools/train_net.py --config configs/FCOS-Detection/R_18_1x-Full-SyncBN-FixFPN-FixPoint-lsq-M2F8L8.yaml
     ```
     
+    Note: We had a bug on the config, `R_18_1x-Full-SyncBN-FixFPN-FixPoint-lsq-M2F8L8.yaml` actually set all the layers (feature maps and weight) except the input image to 2bit. The first and last layers are also 2-bit quantized, rather than 8bit quantized. Check the log file for exact configuration.
+    
 ## License and contribution 
 
 See [README.md](../README.md)
