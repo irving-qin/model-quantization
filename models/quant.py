@@ -616,9 +616,9 @@ class quantization(nn.Module):
                     if 'symmetry' in self.args.keyword:
                         y = self.quant.apply(y, self.level_num.item() / 2 - 1)
                     else:
-                    	y = (y + 1.0) / 2.0
-                    	y = self.quant.apply(y, self.level_num.item() - 1)
-                    	y = y * 2.0 - 1.0
+                        y = (y + 1.0) / 2.0
+                        y = self.quant.apply(y, self.level_num.item() - 1)
+                        y = y * 2.0 - 1.0
                     y = y * clip_val
                     y = y.reshape(c1, c2, kh, kw)
                     x = x.reshape(c1, c2, kh, kw)
